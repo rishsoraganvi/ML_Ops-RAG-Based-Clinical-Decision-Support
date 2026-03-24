@@ -1,0 +1,163 @@
+# =============================================================================
+# RAGOps — PR Enforcement Workflow
+# Runs on every PR to `develop` or `main`.
+# All jobs must pass before merge is allowed.
+#
+# Jobs:
+#   1. lint-and-type-check  — ruff + mypy
+#   2. no-print-guard       — grep blocks print() in src/
+#   3. unit-tests           — pytest with coverage gate (80%)
+#   4. docker-build         — validates Dockerfile builds cleanly
+# =============================================================================
+
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - develop   # also runs on direct develop pushes (release PRs)
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true   # cancel superseded runs on force-push
+
+jobs:
+
+  # ── 1. Lint + Type Check ────────────────────────────────────────────────────
+  lint-and-type-check:
+    name: Lint & type check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: docker/fastapi/requirements.txt
+
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install -r docker/fastapi/requirements.txt
+          pip install ruff mypy
+
+      - name: Ruff lint
+        run: ruff check src/ --output-format=github
+
+      - name: Ruff format check
+        run: ruff format src/ --check
+
+      - name: Mypy type check
+        run: |
+          mypy src/ \
+            --ignore-missing-imports \
+            --strict \
+            --exclude src/infra/tests \
+            --exclude src/monitoring/tests
+
+  # ── 2. No print() guard ─────────────────────────────────────────────────────
+  no-print-guard:
+    name: No print() in src/
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for print() statements
+        run: |
+          # Fail if any print( found outside test files
+          if grep -rn "print(" src/ \
+              --include="*.py" \
+              --exclude-dir="tests" ; then
+            echo ""
+            echo "ERROR: print() statements found in src/."
+            echo "Use logging.getLogger(__name__).info/warning/error instead."
+            exit 1
+          fi
+          echo "No print() statements found — OK"
+
+  # ── 3. Unit Tests ───────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: docker/fastapi/requirements.txt
+
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install -r docker/fastapi/requirements.txt
+          pip install pytest pytest-asyncio pytest-cov
+
+      - name: Run tests with coverage
+        run: |
+          pytest src/ \
+            -v \
+            --tb=short \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=80
+        env:
+          # Point MLflow at a local SQLite DB for tests (matches test fixtures)
+          MLFLOW_TRACKING_URI: sqlite:///test_mlflow.db
+          ENVIRONMENT: test
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7
+
+  # ── 4. Docker Build ─────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker build (FastAPI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('docker/fastapi/Dockerfile', 'docker/fastapi/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build FastAPI image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/fastapi
+          push: false         # build only — no registry push on PRs
+          tags: ragops/fastapi:pr-${{ github.event.pull_request.number }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          build-args: |
+            PYTHON_VERSION=3.11
+
+      # Prevent cache from growing unboundedly
+      - name: Rotate build cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
