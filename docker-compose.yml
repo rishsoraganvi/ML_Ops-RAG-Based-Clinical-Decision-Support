@@ -1,0 +1,167 @@
+# =============================================================================
+# RAGOps — Production Docker Compose
+# Services: ChromaDB | MLflow (SQLite) | Ollama (NVIDIA GPU) | FastAPI
+# =============================================================================
+
+version: "3.9"
+
+# ---------------------------------------------------------------------------
+# Named Volumes — all critical state persists across restarts
+# ---------------------------------------------------------------------------
+volumes:
+  chroma_data:       # PAPER CONTRIBUTION: ChromaDB vector store (embedding drift baseline)
+    driver: local
+  mlflow_data:       # MLflow SQLite DB + artifact store
+    driver: local
+  ollama_data:       # Ollama model cache (LLaMA-3-8B weights — ~4.7 GB)
+    driver: local
+
+# ---------------------------------------------------------------------------
+# Shared network — all services communicate on ragops_net
+# ---------------------------------------------------------------------------
+networks:
+  ragops_net:
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # ── 1. ChromaDB ────────────────────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:${CHROMA_VERSION:-0.5.3}
+    container_name: ragops_chromadb
+    restart: unless-stopped
+    environment:
+      CHROMA_SERVER_HOST: "0.0.0.0"
+      CHROMA_SERVER_HTTP_PORT: "${CHROMA_PORT:-8000}"
+      ANONYMIZED_TELEMETRY: "false"
+      ALLOW_RESET: "${CHROMA_ALLOW_RESET:-false}"   # set true only in dev
+    ports:
+      - "${CHROMA_PORT:-8000}:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - ragops_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ── 2. MLflow (SQLite backend + local artifact store) ──────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:${MLFLOW_VERSION:-2.13.0}
+    container_name: ragops_mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server
+        --backend-store-uri sqlite:////mlflow/db/mlflow.db
+        --default-artifact-root /mlflow/artifacts
+        --host 0.0.0.0
+        --port ${MLFLOW_PORT:-5000}
+        --serve-artifacts
+    environment:
+      MLFLOW_TRACKING_URI: "http://mlflow:${MLFLOW_PORT:-5000}"
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    networks:
+      - ragops_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── 3. Ollama (NVIDIA GPU) ─────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:${OLLAMA_VERSION:-latest}
+    container_name: ragops_ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: "0.0.0.0"
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:-24h}"   # keep LLaMA-3 warm in VRAM
+      OLLAMA_NUM_PARALLEL: "${OLLAMA_NUM_PARALLEL:-2}"
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      # Init script that auto-pulls LLaMA-3-8B on first boot
+      - ./docker/ollama/pull_model.sh:/pull_model.sh:ro
+    networks:
+      - ragops_net
+    # ── NVIDIA GPU passthrough ──────────────────────────────────────────────
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${NVIDIA_GPU_COUNT:-1}
+              capabilities: [gpu]
+    # Run model pull in background after container starts
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      "ollama serve &
+       sleep 5 &&
+       bash /pull_model.sh &&
+       wait"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 120s   # extra time for model download on cold start
+
+  # ── 4. FastAPI (RAGOps orchestration layer) ────────────────────────────────
+  fastapi:
+    build:
+      context: ./docker/fastapi
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: "${PYTHON_VERSION:-3.11}"
+    container_name: ragops_fastapi
+    restart: unless-stopped
+    environment:
+      # Service endpoints — resolved via Docker DNS on ragops_net
+      CHROMA_HOST: "chromadb"
+      CHROMA_PORT: "${CHROMA_PORT:-8000}"
+      MLFLOW_TRACKING_URI: "http://mlflow:${MLFLOW_PORT:-5000}"
+      OLLAMA_BASE_URL: "http://ollama:${OLLAMA_PORT:-11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3:8b}"
+
+      # PSI drift detection thresholds (PAPER CONTRIBUTION)
+      PSI_WARNING_THRESHOLD: "${PSI_WARNING_THRESHOLD:-0.1}"
+      PSI_ALERT_THRESHOLD: "${PSI_ALERT_THRESHOLD:-0.25}"
+
+      # XAI consistency thresholds (XAI CONTRIBUTION)
+      XAI_WARNING_THRESHOLD: "${XAI_WARNING_THRESHOLD:-0.75}"
+      XAI_ALERT_THRESHOLD: "${XAI_ALERT_THRESHOLD:-0.60}"
+
+      # General
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      ENVIRONMENT: "${ENVIRONMENT:-production}"
+    ports:
+      - "${FASTAPI_PORT:-8080}:8080"
+    volumes:
+      # Hot-reload in dev: mount source so edits reflect without rebuild
+      - ./src:/app/src:ro
+    networks:
+      - ragops_net
+    depends_on:
+      chromadb:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s

@@ -1,0 +1,42 @@
+# =============================================================================
+# RAGOps FastAPI Service — Python Dependencies
+# Pin major.minor; patch auto-updates via Dependabot / renovate
+# =============================================================================
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi==0.111.*
+uvicorn[standard]==0.30.*
+pydantic==2.7.*
+pydantic-settings==2.3.*
+
+# ── RAG & LLM ─────────────────────────────────────────────────────────────────
+langchain==0.2.*
+langchain-community==0.2.*
+langchain-ollama==0.1.*
+chromadb==0.5.*
+sentence-transformers==3.0.*       # embedding model (all-MiniLM-L6-v2 → 384-dim)
+
+# ── Evaluation (Member 3 interface) ───────────────────────────────────────────
+ragas==0.1.*
+
+# ── Experiment tracking ────────────────────────────────────────────────────────
+mlflow==2.13.*
+
+# ── PSI drift detection (PAPER CONTRIBUTION) ─────────────────────────────────
+numpy==1.26.*
+scipy==1.13.*
+
+# ── XAI monitoring (XAI CONTRIBUTION) ────────────────────────────────────────
+shap==0.45.*
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+httpx==0.27.*                      # async HTTP client (Ollama calls)
+python-dotenv==1.0.*
+tenacity==8.3.*                    # retry logic for service calls
+structlog==24.2.*                  # structured logging
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==8.2.*
+pytest-asyncio==0.23.*
+pytest-cov==5.0.*
+httpx                              # TestClient
