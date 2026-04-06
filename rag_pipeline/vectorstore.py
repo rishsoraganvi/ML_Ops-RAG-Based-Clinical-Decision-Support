@@ -4,6 +4,8 @@ Handles persistent storage, collection naming, and embedding function.
 """
 
 import logging
+import os
+from functools import lru_cache
 from typing import Optional
 
 import chromadb
@@ -16,8 +18,8 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-CHROMA_HOST = "localhost"
-CHROMA_PORT = 8000
+CHROMA_HOST = os.environ.get("CHROMA_HOST", "localhost")
+CHROMA_PORT = int(os.environ.get("CHROMA_PORT", "8000"))
 EMBED_MODEL  = "sentence-transformers/all-MiniLM-L6-v2"
 
 VALID_CHUNK_SIZES = (256, 512, 1024)
@@ -26,8 +28,9 @@ VALID_CHUNK_SIZES = (256, 512, 1024)
 # Embedding function (shared across ingest + retrieval)
 # ---------------------------------------------------------------------------
 
+@lru_cache(maxsize=1)
 def get_embedding_function() -> embedding_functions.SentenceTransformerEmbeddingFunction:
-    """Return a cached SentenceTransformer embedding function."""
+    """Return a cached SentenceTransformer embedding function (singleton)."""
     return embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name=EMBED_MODEL
     )
