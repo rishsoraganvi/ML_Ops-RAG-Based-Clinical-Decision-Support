@@ -19,7 +19,13 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 CHROMA_HOST = os.environ.get("CHROMA_HOST", "localhost")
-CHROMA_PORT = int(os.environ.get("CHROMA_PORT", "8000"))
+_chroma_port_raw = os.environ.get("CHROMA_PORT", "8000")
+try:
+    CHROMA_PORT = int(_chroma_port_raw)
+except ValueError as exc:
+    raise ValueError(
+        f"CHROMA_PORT must be a valid integer, got '{_chroma_port_raw}'"
+    ) from exc
 EMBED_MODEL  = "sentence-transformers/all-MiniLM-L6-v2"
 
 VALID_CHUNK_SIZES = (256, 512, 1024)
