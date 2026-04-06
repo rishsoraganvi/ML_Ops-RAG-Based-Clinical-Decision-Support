@@ -7,7 +7,7 @@ Exposes:
     run_eval(qa_pairs, config)   -> dict   # full 50-question eval
     run_ci_eval(config=None)     -> dict   # smoke-test, < 90 s
 
-LLM Judge : Ollama LLaMA-3-8B (local)
+LLM Judge : Ollama (default: llama3.2:1b via OLLAMA_MODEL env var)
 Metrics   : faithfulness | context_recall | answer_relevance | context_precision
 Tracking  : MLflow — every run logged automatically
 
@@ -194,6 +194,7 @@ def _run_ragas(
     run_tag: str,
     config: dict | None,
     extra_tags: dict | None = None,
+    per_question_path: Path | None = None,
 ) -> dict[str, float]:
     """
     Execute RAGAS evaluate() and log results to MLflow.
@@ -220,8 +221,9 @@ def _run_ragas(
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
-    cfg_hash = _config_fingerprint(config)
-    run_name = f"{run_tag}_{cfg_hash}"
+    cfg_hash  = _config_fingerprint(config)
+    config_id = (config or {}).get("config_id", "")
+    run_name  = f"{run_tag}_{cfg_hash}"
 
     log.info("Starting RAGAS evaluation | run=%s | n=%d", run_name, len(dataset))
     t0 = time.perf_counter()
@@ -229,8 +231,9 @@ def _run_ragas(
     with mlflow.start_run(run_name=run_name):
         # ── Tags ──────────────────────────────────────────────────────────
         mlflow.set_tags({
-            "run_tag": run_tag,
+            "run_tag":     run_tag,
             "config_hash": cfg_hash,
+            "config_id":   config_id,
             "ollama_model": OLLAMA_MODEL,
             "n_questions": len(dataset),
             **(extra_tags or {}),
@@ -275,10 +278,28 @@ def _run_ragas(
         per_q = result_df[
             ["faithfulness", "context_recall", "answer_relevancy", "context_precision"]
         ].rename(columns={"answer_relevancy": "answer_relevance"})
-        import tempfile, pathlib
-        _tmp = pathlib.Path(tempfile.gettempdir()) / "per_question_scores.csv"
-        per_q.to_csv(_tmp, index=False)
-        mlflow.log_artifact(str(_tmp), "per_question")
+
+        import tempfile
+        if per_question_path is not None:
+            # Caller specified a destination — write directly (no temp file)
+            Path(per_question_path).parent.mkdir(parents=True, exist_ok=True)
+            per_q.to_csv(per_question_path, index=False)
+            mlflow.log_artifact(str(per_question_path), "per_question")
+        else:
+            # Use a unique temp file to avoid collisions when running in parallel
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".csv",
+                prefix="per_question_scores_",
+                delete=False,
+            ) as _tmp_file:
+                _tmp = _tmp_file.name
+            try:
+                per_q.to_csv(_tmp, index=False)
+                mlflow.log_artifact(_tmp, "per_question")
+            finally:
+                if os.path.exists(_tmp):
+                    os.remove(_tmp)
 
         log.info("Scores: %s", scores)
 
@@ -292,6 +313,7 @@ def _run_ragas(
 def run_eval(
     qa_pairs: list[dict],
     config: dict | None = None,
+    per_question_path: Path | None = None,
 ) -> dict[str, float]:
     """
     Run full RAGAS evaluation over all qa_pairs.
@@ -303,6 +325,10 @@ def run_eval(
     config   : dict | None
         Ablation config (chunk_size, retriever, top_k, …).
         Logged verbatim to MLflow for reproducibility.
+    per_question_path : Path | None
+        If provided, per-question scores CSV is written directly to this path
+        instead of a temporary file.  Pass a config-specific path when calling
+        from the ablation runner to avoid concurrent-write races.
 
     Returns
     -------
@@ -313,7 +339,12 @@ def run_eval(
         raise ValueError("qa_pairs must be non-empty")
 
     dataset = _build_ragas_dataset(qa_pairs)
-    return _run_ragas(dataset, run_tag="full_eval", config=config)
+    return _run_ragas(
+        dataset,
+        run_tag="full_eval",
+        config=config,
+        per_question_path=per_question_path,
+    )
 
 
 def run_ci_eval(

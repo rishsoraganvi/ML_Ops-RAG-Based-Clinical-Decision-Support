@@ -132,6 +132,8 @@ def run_error_analysis(
     if pq_df is not None:
         available = [m for m in metric_cols if m in pq_df.columns]
         pq_df["composite"] = pq_df[available].mean(axis=1)
+        # Preserve original row index as question_idx before selecting worst rows
+        pq_df["question_idx"] = pq_df.index
         worst = pq_df.nsmallest(10, "composite").copy()
     else:
         # Simulate worst questions when per-question data unavailable
@@ -154,12 +156,15 @@ def run_error_analysis(
             lambda i: qa_lookup.get(int(i), {}).get("difficulty", "unknown")
         )
     elif qa_pairs:
-        # Map by position
-        for i, idx in enumerate(worst.index):
-            if i < len(qa_pairs):
-                worst.loc[idx, "question"]   = qa_pairs[i].get("question", f"Q{i+1}")
-                worst.loc[idx, "category"]   = qa_pairs[i].get("category", "unknown")
-                worst.loc[idx, "difficulty"] = qa_pairs[i].get("difficulty", "unknown")
+        # Map by the original DataFrame row index (question_idx), not enumeration
+        # counter, to avoid labelling the wrong question when worst rows are not
+        # the first N rows of the DataFrame.
+        for _, row in worst.iterrows():
+            q_idx = int(row.get("question_idx", row.name))
+            if q_idx < len(qa_pairs):
+                worst.loc[row.name, "question"]   = qa_pairs[q_idx].get("question", f"Q{q_idx+1}")
+                worst.loc[row.name, "category"]   = qa_pairs[q_idx].get("category", "unknown")
+                worst.loc[row.name, "difficulty"] = qa_pairs[q_idx].get("difficulty", "unknown")
 
     # ── Category summary ───────────────────────────────────────────────────
     cat_counts = worst["error_category"].value_counts().to_dict()

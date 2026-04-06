@@ -56,12 +56,12 @@ ALPHA        = 0.05   # significance threshold
 # Cohen's d
 # ---------------------------------------------------------------------------
 def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
-    """Compute Cohen's d effect size between two paired arrays."""
-    diff   = a - b
-    pooled = np.sqrt((np.std(a, ddof=1) ** 2 + np.std(b, ddof=1) ** 2) / 2)
-    if pooled == 0:
+    """Compute paired-samples Cohen's dz effect size between two arrays."""
+    diff = a - b
+    diff_std = np.std(diff, ddof=1)
+    if np.isclose(diff_std, 0.0):
         return 0.0
-    return float(np.mean(diff) / pooled)
+    return float(np.mean(diff) / diff_std)
 
 
 def interpret_d(d: float) -> str:
@@ -271,14 +271,18 @@ def _save_txt_report(results: dict) -> None:  # PAPER RESULT — TABLE 1
     lines.append(f"Configs tested: {results['n_configs']}")
 
     lines.append("\n── Config Ranking (by faithfulness) ──────────────────")
+
+    def _fmt(v: object) -> str:
+        return f"{v:.4f}" if isinstance(v, (int, float)) else str(v)
+
     for r in results.get("ranking", []):
         lines.append(
             f"  #{r['rank']} {r['config_id']:4s}  chunk={r['chunk_size']:4d}  "
             f"retriever={r['retriever']:6s}  "
-            f"faith={r.get('faithfulness','N/A'):.4f}  "
-            f"recall={r.get('context_recall','N/A'):.4f}  "
-            f"relevance={r.get('answer_relevance','N/A'):.4f}  "
-            f"precision={r.get('context_precision','N/A'):.4f}"
+            f"faith={_fmt(r.get('faithfulness', 'N/A'))}  "
+            f"recall={_fmt(r.get('context_recall', 'N/A'))}  "
+            f"relevance={_fmt(r.get('answer_relevance', 'N/A'))}  "
+            f"precision={_fmt(r.get('context_precision', 'N/A'))}"
         )
 
     if results.get("pairwise"):

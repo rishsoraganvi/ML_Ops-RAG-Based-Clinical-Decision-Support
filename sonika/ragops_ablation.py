@@ -174,6 +174,12 @@ def _eval_one_config(
              config_id, cfg_dict["chunk_size"],
              cfg_dict["retriever"], cfg_dict["top_k"])
 
+    # Determine config-specific per-question output path up front so that
+    # parallel workers never share a common temp file.
+    pq_dir = Path(os.getenv("ABLATION_OUTPUT_DIR", "ablation_outputs")) / "per_question"
+    pq_dir.mkdir(parents=True, exist_ok=True)
+    per_question_path = pq_dir / f"{config_id}_per_question.csv"
+
     t0 = time.perf_counter()
     try:
         # ── Call Member 2's query() interface per question ────────────
@@ -182,17 +188,22 @@ def _eval_one_config(
         # query() upstream; here we receive pre-filled qa_pairs for this cfg.
         # See: _inject_config_answers() note below.
 
-        scores = run_eval(qa_pairs=qa_pairs, config=cfg_dict)
+        scores = run_eval(
+            qa_pairs=qa_pairs,
+            config=cfg_dict,
+            per_question_path=per_question_path,
+        )
 
         elapsed = time.perf_counter() - t0
 
-        # Retrieve the MLflow run_id for this config (last active run)
+        # Retrieve the MLflow run_id for this config (last active run).
+        # Query by the config_id tag that ragops_eval now sets explicitly.
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
         client = mlflow.tracking.MlflowClient()
         experiment = client.get_experiment_by_name(MLFLOW_EXPERIMENT)
         runs = client.search_runs(
             experiment_ids=[experiment.experiment_id],
-            filter_string=f"tags.config_hash = '{cfg_dict.get('config_id', '')}'",
+            filter_string=f"tags.config_id = '{config_id}'",
             max_results=1,
             order_by=["start_time DESC"],
         )
@@ -200,18 +211,6 @@ def _eval_one_config(
 
         log.info("[%s] Done in %.1fs — faithfulness=%.4f",
                  config_id, elapsed, scores.get("faithfulness", 0))
-
-        # Save per-question scores locally for significance_test.py
-        try:
-            import tempfile, pathlib
-            _tmp = pathlib.Path(tempfile.gettempdir()) / "per_question_scores.csv"
-            if _tmp.exists():
-                import shutil, os
-                pq_dir = pathlib.Path(os.getenv("ABLATION_OUTPUT_DIR", "ablation_outputs")) / "per_question"
-                pq_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy(_tmp, pq_dir / f"{config_id}_per_question.csv")
-        except Exception as _e:
-            pass  # non-fatal
 
         return {
             **cfg_dict,
@@ -306,6 +305,18 @@ def run_ablation(
     n_configs   = len(configs)
     n_questions = len(qa_pairs)
     n_total     = n_configs * n_questions
+
+    # Warn when using SQLite with multiple workers — concurrent writes frequently
+    # cause "database is locked" errors.  Use file-based mlruns/ or a proper
+    # tracking server (Postgres) for reliable parallel ablation runs.
+    if workers > 1 and MLFLOW_TRACKING_URI.startswith("sqlite://"):
+        log.warning(
+            "SQLite MLflow backend detected with workers=%d. "
+            "Concurrent writes may cause 'database is locked' errors. "
+            "Consider setting MLFLOW_TRACKING_URI to a file-based store "
+            "(e.g. 'mlruns/') or using --workers 1.",
+            workers,
+        )
 
     log.info(
         "Ablation start | configs=%d | questions=%d | total_evals=%d | workers=%d",
