@@ -14,13 +14,17 @@ get_retriever(retriever_type, ...)        → BaseRetriever   (factory)
 retrieve_with_scores(question, ...)       → (docs, scores, latency_ms)  ← XAI hook
 """
 
+import functools
+import hashlib
 import logging
+import re
 import time
-from typing import List, Tuple, Optional
+from typing import Any, List, Tuple, Optional
 
 from langchain.schema import BaseRetriever, Document
 from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever as LangChainBM25Retriever
+from rank_bm25 import BM25Okapi
 from sentence_transformers import CrossEncoder
 
 from .vectorstore import (
@@ -58,6 +62,15 @@ def _get_reranker() -> CrossEncoder:
         logger.info("Loading cross-encoder: %s", RERANKER_MODEL)
         _reranker = CrossEncoder(RERANKER_MODEL)
     return _reranker
+
+
+def _tokenise(text: str) -> List[str]:
+    """Shared BM25 tokeniser — lowercase alphabetic words only.
+
+    Used by both bm25_retriever() and retrieve_with_scores() so that
+    document ranking is consistent across retrieval paths.
+    """
+    return re.findall(r"[a-z]+", text.lower())
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +141,9 @@ def bm25_retriever(
         LangChain BM25Retriever.
     """
     # ABLATION EXPERIMENT
-    retriever = LangChainBM25Retriever.from_documents(corpus_docs, k=k)
+    retriever = LangChainBM25Retriever.from_documents(
+        corpus_docs, k=k, preprocess_func=_tokenise
+    )
     logger.info("BM25 retriever ready — corpus=%d docs, k=%d", len(corpus_docs), k)
     return retriever
 
@@ -162,6 +177,29 @@ def fetch_corpus(chunk_size: int) -> List[Document]:
     ]
     logger.info("Fetched %d docs from pubmed_%d for BM25 corpus.", total, chunk_size)
     return docs
+
+
+@functools.lru_cache(maxsize=8)
+def _get_bm25_components(chunk_size: int) -> Tuple[List[Document], Any]:
+    """
+    Fetch the corpus and build a BM25Okapi index once per chunk_size.
+
+    Cached with lru_cache keyed solely on chunk_size (an int), so repeated
+    calls within the same process reuse the already-built index — avoids
+    per-query corpus fetch + tokenisation.
+    Uses the shared _tokenise() function so ranking is consistent with
+    bm25_retriever() (which also uses _tokenise via preprocess_func).
+
+    Returns:
+        (corpus_docs, bm25_index)
+    """
+    corpus = fetch_corpus(chunk_size)
+    tokenised = [_tokenise(d.page_content) for d in corpus]
+    bm25_index = BM25Okapi(tokenised)
+    logger.info(
+        "Built BM25Okapi index for chunk_size=%d (%d docs).", chunk_size, len(corpus)
+    )
+    return corpus, bm25_index
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +272,11 @@ def hybrid_retrieve(
         (docs, rerank_scores, latency_ms)
     """
     # ABLATION EXPERIMENT
+    if not 0.0 <= dense_weight <= 1.0:
+        raise ValueError(
+            f"dense_weight must be in [0, 1], got {dense_weight!r}. "
+            "BM25 weight is computed as 1 - dense_weight."
+        )
     fetch_k = k * HYBRID_FETCH_MULT    # 5 * 4 = 20 candidates per side
     t0      = time.perf_counter()
 
@@ -255,10 +298,14 @@ def hybrid_retrieve(
         )
     ]
 
-    # 2. BM25 candidates (top-20)
-    corpus    = fetch_corpus(chunk_size)
-    bm25_ret  = bm25_retriever(corpus, k=fetch_k)
-    bm25_docs = bm25_ret.invoke(question)
+    # 2. BM25 candidates (top-20) — reuse cached corpus and index
+    corpus, bm25_index = _get_bm25_components(chunk_size)
+    query_tokens = _tokenise(question)
+    bm25_raw     = bm25_index.get_scores(query_tokens)
+    bm25_ranked  = sorted(
+        zip(corpus, bm25_raw), key=lambda x: x[1], reverse=True
+    )[:fetch_k]
+    bm25_docs = [d for d, _ in bm25_ranked]
 
     # 3. Weighted RRF fusion (0.6 dense + 0.4 BM25)
     merged = _reciprocal_rank_fusion(
@@ -295,7 +342,8 @@ def _reciprocal_rank_fusion(
 
     for doc_list, weight in zip(doc_lists, weights):
         for rank, doc in enumerate(doc_list, start=1):
-            key          = hash(doc.page_content)
+            # Use SHA-256 of page_content for stable, collision-resistant dedup
+            key = hashlib.sha256(doc.page_content.encode()).hexdigest()
             scores[key]  = scores.get(key, 0.0) + weight / (rrf_k + rank)
             doc_map[key] = doc
 
@@ -355,7 +403,7 @@ class _HybridRetrieverWrapper(BaseRetriever):
     k:            int   = DEFAULT_K
     dense_weight: float = DEFAULT_DENSE_WEIGHT
 
-    def _get_relevant_documents(self, query: str) -> List[Document]:
+    def _get_relevant_documents(self, query: str, **kwargs: Any) -> List[Document]:
         docs, _, _ = hybrid_retrieve(
             query,
             chunk_size=self.chunk_size,
@@ -364,7 +412,7 @@ class _HybridRetrieverWrapper(BaseRetriever):
         )
         return docs
 
-    async def _aget_relevant_documents(self, query: str) -> List[Document]:
+    async def _aget_relevant_documents(self, query: str, **kwargs: Any) -> List[Document]:
         return self._get_relevant_documents(query)
 
 
@@ -389,27 +437,26 @@ def retrieve_with_scores(
         - scores for bm25:   BM25 relevance scores (unnormalised)
         - scores for hybrid: cross-encoder scores (unnormalised logits)
     """
+    retriever_type = retriever_type.lower()
+    if retriever_type not in VALID_RETRIEVERS:
+        raise ValueError(
+            f"Unknown retriever_type '{retriever_type}'. "
+            f"Choose from: {' | '.join(VALID_RETRIEVERS)}"
+        )
+
     # Hybrid
     if retriever_type == "hybrid":
         return hybrid_retrieve(
             question, chunk_size=chunk_size, k=k, dense_weight=dense_weight
         )
 
-    # BM25
+    # BM25 — reuse cached corpus and index; same tokeniser as bm25_retriever()
     if retriever_type == "bm25":
-        from rank_bm25 import BM25Okapi
-        import re
+        t0 = time.perf_counter()
+        corpus, bm25_index = _get_bm25_components(chunk_size)
 
-        t0     = time.perf_counter()
-        corpus = fetch_corpus(chunk_size)
-
-        def tokenise(text: str) -> List[str]:
-            return re.findall(r"[a-z]+", text.lower())
-
-        tokenised_corpus = [tokenise(d.page_content) for d in corpus]
-        bm25             = BM25Okapi(tokenised_corpus)
-        query_tokens     = tokenise(question)
-        raw_scores       = bm25.get_scores(query_tokens).tolist()
+        query_tokens = _tokenise(question)
+        raw_scores   = bm25_index.get_scores(query_tokens).tolist()
 
         ranked = sorted(
             zip(corpus, raw_scores), key=lambda x: x[1], reverse=True

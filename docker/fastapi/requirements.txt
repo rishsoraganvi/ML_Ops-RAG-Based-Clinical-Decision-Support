@@ -15,6 +15,7 @@ langchain-community==0.2.*
 langchain-ollama==0.1.*
 chromadb==0.5.*
 sentence-transformers==3.0.*       # embedding model (all-MiniLM-L6-v2 → 384-dim)
+rank-bm25==0.2.*                   # BM25 lexical retrieval (Week 2)
 
 # ── Evaluation (Member 3 interface) ───────────────────────────────────────────
 ragas==0.1.*
