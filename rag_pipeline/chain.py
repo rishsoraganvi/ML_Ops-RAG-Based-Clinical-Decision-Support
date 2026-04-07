@@ -52,9 +52,10 @@ CLINICAL_PROMPT = PromptTemplate(
 
 DEFAULT_CONFIG = {
     "retriever_type": "dense",   # dense | bm25 | hybrid
-    "chunk_size":     512,       # 256 | 512 | 1024   ← ABLATION EXPERIMENT
+    "chunk_size":     256,       # 256 | 512 | 1024   ← ABLATION EXPERIMENT
     "k":              DEFAULT_K,
     "reranker":       False,     # True only for hybrid (Week 2)
+    "dense_weight":   0.6,       # hybrid RRF weight — spec: 0.6 dense + 0.4 BM25
 }
 
 
@@ -144,6 +145,7 @@ def query(
         retriever_type=cfg["retriever_type"],
         chunk_size=cfg["chunk_size"],
         k=cfg["k"],
+        dense_weight=cfg.get("dense_weight", 0.5),
     )
 
     # ── 2. Build context string from retrieved docs ───────────────────────
@@ -274,9 +276,18 @@ def _log_to_mlflow(question: str, result: dict, cfg: dict) -> None:
 
 # ABLATION EXPERIMENT
 ABLATION_CONFIGS = [
-    {"retriever_type": rt, "chunk_size": cs}
-    for rt in ("dense",)                   # bm25 | hybrid added Week 2
-    for cs in (256, 512, 1024)             # ABLATION EXPERIMENT
+    # dense — reranker OFF                              # ABLATION EXPERIMENT
+    {"retriever_type": "dense",  "chunk_size": 256, "reranker": False},
+    {"retriever_type": "dense",  "chunk_size": 512, "reranker": False},
+    {"retriever_type": "dense",  "chunk_size": 1024, "reranker": False},
+    # bm25 — reranker OFF                              # ABLATION EXPERIMENT
+    {"retriever_type": "bm25",   "chunk_size": 256, "reranker": False},
+    {"retriever_type": "bm25",   "chunk_size": 512, "reranker": False},
+    {"retriever_type": "bm25",   "chunk_size": 1024, "reranker": False},
+    # hybrid — reranker ON                             # ABLATION EXPERIMENT
+    {"retriever_type": "hybrid", "chunk_size": 256, "reranker": True},
+    {"retriever_type": "hybrid", "chunk_size": 512, "reranker": True},
+    {"retriever_type": "hybrid", "chunk_size": 1024, "reranker": True},
 ]
 
 
