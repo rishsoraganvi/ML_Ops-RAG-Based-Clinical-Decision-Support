@@ -1,0 +1,752 @@
+[
+  {
+    "id": "D001",
+    "category": "diagnosis",
+    "difficulty": "easy",
+    "question": "What are the classic symptoms of myocardial infarction?",
+    "ground_truth": "Classic symptoms include chest pain or pressure radiating to the arm or jaw, shortness of breath, diaphoresis, nausea, and fatigue. Some patients, especially women and diabetics, may present atypically.",
+    "contexts": [
+      "Myocardial infarction classically presents with chest pain radiating to the left arm or jaw, accompanied by shortness of breath, diaphoresis, and nausea.",
+      "Atypical presentations are common in women, elderly patients, and diabetics, often manifesting as fatigue or epigastric discomfort without classic chest pain."
+    ],
+    "answer": "Classic symptoms of myocardial infarction include chest pain or pressure that may radiate to the arm or jaw, shortness of breath, diaphoresis, and nausea.",
+    "relevant_pmids": [
+      "29765823"
+    ]
+  },
+  {
+    "id": "D002",
+    "category": "diagnosis",
+    "difficulty": "medium",
+    "question": "How is Type 2 diabetes diagnosed according to current guidelines?",
+    "ground_truth": "Diagnosis requires fasting plasma glucose \u2265126 mg/dL, 2-hour glucose \u2265200 mg/dL during OGTT, HbA1c \u22656.5%, or random glucose \u2265200 mg/dL with symptoms, confirmed on two occasions.",
+    "contexts": [
+      "The American Diabetes Association criteria for diabetes diagnosis include fasting plasma glucose \u2265126 mg/dL or HbA1c \u22656.5% on two separate occasions.",
+      "A 2-hour plasma glucose \u2265200 mg/dL during a 75g oral glucose tolerance test also confirms diagnosis of type 2 diabetes."
+    ],
+    "answer": "Type 2 diabetes is diagnosed by fasting plasma glucose \u2265126 mg/dL, HbA1c \u22656.5%, or 2-hour glucose \u2265200 mg/dL on OGTT, confirmed on two occasions.",
+    "relevant_pmids": [
+      "33298413"
+    ]
+  },
+  {
+    "id": "D003",
+    "category": "diagnosis",
+    "difficulty": "medium",
+    "question": "What diagnostic criteria define heart failure with reduced ejection fraction?",
+    "ground_truth": "HFrEF is defined as heart failure symptoms with left ventricular ejection fraction \u226440%, confirmed by echocardiography.",
+    "contexts": [
+      "Heart failure with reduced ejection fraction (HFrEF) is defined by an LVEF of 40% or less measured by echocardiography.",
+      "Symptoms include dyspnea, fatigue, and fluid retention, with structural or functional cardiac abnormality impairing ventricular filling or ejection."
+    ],
+    "answer": "HFrEF is defined as symptomatic heart failure with left ventricular ejection fraction \u226440% confirmed by echocardiography.",
+    "relevant_pmids": [
+      "26320108"
+    ]
+  },
+  {
+    "id": "D004",
+    "category": "diagnosis",
+    "difficulty": "hard",
+    "question": "What are the Rome IV criteria for irritable bowel syndrome?",
+    "ground_truth": "Rome IV criteria require recurrent abdominal pain averaging \u22651 day/week in the last 3 months, associated with \u22652 of: related to defecation, change in stool frequency, or change in stool form/appearance, with symptom onset \u22656 months prior.",
+    "contexts": [
+      "Rome IV criteria for IBS require recurrent abdominal pain at least 1 day per week in the last 3 months, associated with two or more of the following: related to defecation, change in stool frequency, or change in stool appearance.",
+      "Symptoms must have started at least 6 months before diagnosis, with no evidence of organic cause on investigation."
+    ],
+    "answer": "Rome IV criteria for IBS require recurrent abdominal pain \u22651 day/week for 3 months, with \u22652 of: association with defecation, change in frequency, or change in stool form.",
+    "relevant_pmids": [
+      "27144627"
+    ]
+  },
+  {
+    "id": "D005",
+    "category": "diagnosis",
+    "difficulty": "easy",
+    "question": "What laboratory findings are characteristic of iron deficiency anaemia?",
+    "ground_truth": "Iron deficiency anaemia shows low serum ferritin, low serum iron, elevated TIBC, microcytic hypochromic red cells, low MCV, and low MCH on blood film.",
+    "contexts": [
+      "Iron deficiency anaemia is characterised by low serum ferritin (most sensitive marker), low serum iron, and elevated total iron binding capacity (TIBC).",
+      "Blood film shows microcytic hypochromic red cells with low mean corpuscular volume (MCV) and mean corpuscular haemoglobin (MCH)."
+    ],
+    "answer": "Iron deficiency anaemia shows low ferritin, low serum iron, elevated TIBC, and microcytic hypochromic red cells with low MCV.",
+    "relevant_pmids": [
+      "29050704"
+    ]
+  },
+  {
+    "id": "D006",
+    "category": "diagnosis",
+    "difficulty": "medium",
+    "question": "What ECG findings suggest pulmonary embolism?",
+    "ground_truth": "Common ECG findings in PE include sinus tachycardia (most common), S1Q3T3 pattern, new right bundle branch block, right axis deviation, and T-wave inversions in V1-V4.",
+    "contexts": [
+      "The most common ECG finding in pulmonary embolism is sinus tachycardia. The classic S1Q3T3 pattern (S wave in lead I, Q wave and T-wave inversion in lead III) is specific but insensitive.",
+      "New right bundle branch block, right axis deviation, and T-wave inversions in the right precordial leads (V1-V4) may also indicate acute right heart strain from pulmonary embolism."
+    ],
+    "answer": "ECG findings in PE include sinus tachycardia, S1Q3T3 pattern, right bundle branch block, right axis deviation, and T-wave inversions in V1-V4.",
+    "relevant_pmids": [
+      "31326233"
+    ]
+  },
+  {
+    "id": "D007",
+    "category": "diagnosis",
+    "difficulty": "hard",
+    "question": "What are the diagnostic criteria for systemic lupus erythematosus?",
+    "ground_truth": "The 2019 EULAR/ACR criteria classify SLE with a score \u226510 using weighted criteria across domains including constitutional, haematological, neuropsychiatric, mucocutaneous, serosal, musculoskeletal, and renal, plus mandatory positive ANA.",
+    "contexts": [
+      "The 2019 EULAR/ACR classification criteria for SLE require a positive ANA as mandatory entry criterion, plus a total score of \u226510 from weighted clinical and immunological domains.",
+      "Domains include constitutional (fever), haematological (cytopenia), neuropsychiatric, mucocutaneous (malar rash, photosensitivity), serosal (pleuritis), musculoskeletal, and renal (proteinuria, lupus nephritis)."
+    ],
+    "answer": "The 2019 EULAR/ACR criteria classify SLE with positive ANA plus \u226510 points across weighted domains including haematological, renal, mucocutaneous, and immunological criteria.",
+    "relevant_pmids": [
+      "31305174"
+    ]
+  },
+  {
+    "id": "D008",
+    "category": "diagnosis",
+    "difficulty": "easy",
+    "question": "What is the diagnostic approach to community-acquired pneumonia?",
+    "ground_truth": "Diagnosis is based on clinical features (fever, cough, dyspnoea, consolidation) plus chest X-ray showing infiltrate. Sputum culture, blood cultures, and urinary antigen tests guide aetiology.",
+    "contexts": [
+      "Community-acquired pneumonia is diagnosed clinically by new respiratory symptoms (cough, dyspnoea, fever) plus radiographic evidence of pulmonary consolidation on chest X-ray.",
+      "Microbiological investigations including sputum culture, blood cultures, and urinary antigen tests for Streptococcus pneumoniae and Legionella guide antibiotic selection."
+    ],
+    "answer": "CAP is diagnosed by clinical features (fever, cough, dyspnoea) plus chest X-ray consolidation, with microbiological tests to guide antibiotic therapy.",
+    "relevant_pmids": [
+      "27418347"
+    ]
+  },
+  {
+    "id": "D009",
+    "category": "diagnosis",
+    "difficulty": "medium",
+    "question": "How is chronic kidney disease staged?",
+    "ground_truth": "CKD is staged by GFR (G1-G5: \u226590, 60-89, 45-59, 30-44, 15-29, <15 mL/min/1.73m\u00b2) and albuminuria category (A1-A3), with prognosis determined by GFR-albuminuria heat map.",
+    "contexts": [
+      "CKD is classified into G1 to G5 based on GFR: G1 \u226590, G2 60-89, G3a 45-59, G3b 30-44, G4 15-29, G5 <15 mL/min/1.73m\u00b2.",
+      "Albuminuria is categorised as A1 (<30 mg/g), A2 (30-300 mg/g), or A3 (>300 mg/g), with higher categories indicating worse prognosis combined with GFR stage."
+    ],
+    "answer": "CKD is staged by eGFR into G1-G5 and albuminuria into A1-A3 categories; prognosis is determined by the combined GFR-albuminuria classification.",
+    "relevant_pmids": [
+      "22765297"
+    ]
+  },
+  {
+    "id": "D010",
+    "category": "diagnosis",
+    "difficulty": "hard",
+    "question": "What are the Wells criteria for deep vein thrombosis?",
+    "ground_truth": "The Wells DVT score assigns points for active cancer (+1), paralysis (+1), immobilisation (+1), localised tenderness (+1), entire leg swollen (+1), calf swelling >3cm (+1), pitting oedema (+1), collateral veins (+1), and alternative diagnosis as likely (\u22122). Score \u22652 = high probability.",
+    "contexts": [
+      "The Wells criteria for DVT assign one point each for active cancer, paralysis/paresis, recent immobilisation, localised tenderness, entire leg swelling, calf swelling >3cm compared to asymptomatic leg, pitting oedema, and dilated collateral veins.",
+      "Two points are subtracted if an alternative diagnosis is at least as likely. A score of 2 or more indicates high probability of DVT; compression ultrasound is recommended."
+    ],
+    "answer": "Wells DVT score assigns points for cancer, immobilisation, tenderness, leg swelling, calf swelling, pitting oedema, and collateral veins, minus 2 if alternative diagnosis likely; \u22652 = high probability.",
+    "relevant_pmids": [
+      "9310794"
+    ]
+  },
+  {
+    "id": "D011",
+    "category": "diagnosis",
+    "difficulty": "medium",
+    "question": "What criteria are used to diagnose sepsis?",
+    "ground_truth": "Sepsis-3 defines sepsis as life-threatening organ dysfunction from infection, with SOFA score increase \u22652. qSOFA (altered mentation, RR\u226522, SBP\u2264100) identifies at-risk patients outside ICU.",
+    "contexts": [
+      "The Sepsis-3 definition identifies sepsis as life-threatening organ dysfunction caused by a dysregulated host response to infection, operationalised as an acute increase in SOFA score \u22652.",
+      "The quick SOFA (qSOFA) score uses three criteria: altered mentation, respiratory rate \u226522/min, and systolic blood pressure \u2264100 mmHg \u2014 two or more criteria suggest sepsis risk."
+    ],
+    "answer": "Sepsis-3 defines sepsis as infection with SOFA score increase \u22652; qSOFA (altered mentation, RR\u226522, SBP\u2264100) screens for at-risk patients.",
+    "relevant_pmids": [
+      "26903337"
+    ]
+  },
+  {
+    "id": "D012",
+    "category": "diagnosis",
+    "difficulty": "easy",
+    "question": "What is the normal range for TSH and how is hypothyroidism diagnosed?",
+    "ground_truth": "Normal TSH is approximately 0.4-4.0 mIU/L. Primary hypothyroidism is diagnosed by elevated TSH with low free T4. Subclinical hypothyroidism shows elevated TSH with normal free T4.",
+    "contexts": [
+      "The normal reference range for TSH is approximately 0.4 to 4.0 mIU/L, though this varies slightly between laboratories.",
+      "Primary hypothyroidism is diagnosed when TSH is elevated (>4.0 mIU/L) with a low free T4. In subclinical hypothyroidism, TSH is elevated but free T4 remains within the normal range."
+    ],
+    "answer": "Normal TSH is 0.4-4.0 mIU/L; hypothyroidism is diagnosed by elevated TSH with low free T4; subclinical hypothyroidism has elevated TSH with normal free T4.",
+    "relevant_pmids": [
+      "29700082"
+    ]
+  },
+  {
+    "id": "D013",
+    "category": "diagnosis",
+    "difficulty": "medium",
+    "question": "What findings on echocardiography diagnose aortic stenosis as severe?",
+    "ground_truth": "Severe aortic stenosis is defined by valve area <1.0 cm\u00b2, mean gradient >40 mmHg, peak jet velocity >4 m/s, or dimensionless index <0.25.",
+    "contexts": [
+      "Severe aortic stenosis on echocardiography is defined by an aortic valve area of less than 1.0 cm\u00b2 or indexed area less than 0.6 cm\u00b2/m\u00b2.",
+      "Additional haemodynamic criteria include mean pressure gradient greater than 40 mmHg and peak aortic jet velocity greater than 4 m/s."
+    ],
+    "answer": "Severe aortic stenosis is defined by valve area <1.0 cm\u00b2, mean gradient >40 mmHg, or peak jet velocity >4 m/s on echocardiography.",
+    "relevant_pmids": [
+      "31173416"
+    ]
+  },
+  {
+    "id": "D014",
+    "category": "diagnosis",
+    "difficulty": "hard",
+    "question": "How is multiple sclerosis diagnosed using the McDonald criteria?",
+    "ground_truth": "The 2017 McDonald criteria diagnose MS by demonstrating dissemination in space (DIS) and dissemination in time (DIT) using clinical attacks and MRI lesions in specific locations (periventricular, cortical/juxtacortical, infratentorial, spinal cord).",
+    "contexts": [
+      "The 2017 revised McDonald criteria for MS diagnosis require demonstration of dissemination in space (DIS) and dissemination in time (DIT), evidenced by clinical relapses or MRI lesions in periventricular, cortical/juxtacortical, infratentorial, or spinal cord regions.",
+      "CSF-specific oligoclonal bands can substitute for DIT when other criteria are met. Diagnosis requires exclusion of alternative diagnoses."
+    ],
+    "answer": "McDonald 2017 criteria diagnose MS by demonstrating dissemination in space and time via clinical attacks or MRI lesions in periventricular, cortical, infratentorial, or spinal cord locations.",
+    "relevant_pmids": [
+      "29275051"
+    ]
+  },
+  {
+    "id": "D015",
+    "category": "diagnosis",
+    "difficulty": "medium",
+    "question": "What are the CURB-65 criteria for pneumonia severity assessment?",
+    "ground_truth": "CURB-65 scores one point each for: Confusion (new), Urea >7 mmol/L, Respiratory rate \u226530/min, Blood pressure <90/60 mmHg, age \u226565. Score 0-1 = low risk, 2 = moderate, 3-5 = high risk (hospital admission recommended).",
+    "contexts": [
+      "The CURB-65 score assesses pneumonia severity: one point each for new-onset confusion, blood urea nitrogen >7 mmol/L, respiratory rate \u226530/min, systolic BP <90 or diastolic <60 mmHg, and age \u226565 years.",
+      "A score of 0-1 indicates low mortality risk suitable for outpatient treatment; score 2 requires hospital assessment; score 3-5 indicates severe disease requiring hospitalisation, possibly in ICU."
+    ],
+    "answer": "CURB-65 scores confusion, urea >7, RR\u226530, BP<90/60, age\u226565 \u2014 one point each; 0-1 = outpatient, 2 = hospital, 3-5 = severe.",
+    "relevant_pmids": [
+      "12728155"
+    ]
+  },
+  {
+    "id": "T001",
+    "category": "treatment",
+    "difficulty": "easy",
+    "question": "What is the first-line treatment for type 2 diabetes?",
+    "ground_truth": "Metformin is the recommended first-line pharmacological treatment for type 2 diabetes, combined with lifestyle modification including diet and exercise, unless contraindicated.",
+    "contexts": [
+      "Metformin remains the preferred initial pharmacological agent for type 2 diabetes due to its efficacy, safety profile, weight neutrality, and low cost.",
+      "Lifestyle interventions including dietary modification and physical activity are recommended alongside pharmacotherapy from diagnosis."
+    ],
+    "answer": "Metformin combined with lifestyle modification (diet and exercise) is the first-line treatment for type 2 diabetes.",
+    "relevant_pmids": [
+      "33298413"
+    ]
+  },
+  {
+    "id": "T002",
+    "category": "treatment",
+    "difficulty": "medium",
+    "question": "What are the treatment options for heart failure with reduced ejection fraction?",
+    "ground_truth": "Evidence-based therapy includes ACE inhibitors or ARBs/ARNi (sacubitril-valsartan), beta-blockers (bisoprolol, carvedilol, metoprolol), MRAs (spironolactone, eplerenone), and SGLT2 inhibitors (dapagliflozin, empagliflozin) \u2014 the 'fantastic four'.",
+    "contexts": [
+      "The four pillars of HFrEF treatment are: (1) ACE inhibitor or ARNI (sacubitril/valsartan), (2) beta-blocker (bisoprolol, carvedilol or metoprolol succinate), (3) mineralocorticoid receptor antagonist (spironolactone or eplerenone), and (4) SGLT2 inhibitor (dapagliflozin or empagliflozin).",
+      "Each of these four drug classes has been shown in large randomised trials to reduce mortality and hospitalisation in patients with HFrEF."
+    ],
+    "answer": "HFrEF treatment uses the 'fantastic four': ARNI/ACE inhibitor, beta-blocker, mineralocorticoid receptor antagonist, and SGLT2 inhibitor.",
+    "relevant_pmids": [
+      "26320108"
+    ]
+  },
+  {
+    "id": "T003",
+    "category": "treatment",
+    "difficulty": "easy",
+    "question": "What antibiotic is recommended for uncomplicated community-acquired pneumonia in outpatients?",
+    "ground_truth": "Amoxicillin is the first-line treatment for outpatient CAP in patients without comorbidities. A macrolide (azithromycin, clarithromycin) is used if atypical organisms are suspected or if penicillin-allergic.",
+    "contexts": [
+      "For outpatient treatment of community-acquired pneumonia without significant comorbidities, amoxicillin 500mg three times daily for 5 days is recommended as first-line therapy.",
+      "A macrolide antibiotic such as azithromycin or clarithromycin is preferred when atypical pathogens (Mycoplasma, Chlamydophila) are suspected, or in penicillin-allergic patients."
+    ],
+    "answer": "Amoxicillin is first-line for outpatient CAP; a macrolide is used for suspected atypicals or penicillin allergy.",
+    "relevant_pmids": [
+      "27418347"
+    ]
+  },
+  {
+    "id": "T004",
+    "category": "treatment",
+    "difficulty": "medium",
+    "question": "What is the recommended antihypertensive treatment for a patient with diabetes and hypertension?",
+    "ground_truth": "ACE inhibitors or ARBs are preferred in patients with diabetes and hypertension, particularly with albuminuria, due to renoprotective effects. Target BP is <130/80 mmHg per current guidelines.",
+    "contexts": [
+      "In patients with both diabetes and hypertension, ACE inhibitors or angiotensin receptor blockers (ARBs) are the preferred antihypertensive agents due to their renoprotective effects and ability to reduce albuminuria.",
+      "The recommended blood pressure target in diabetic hypertensive patients is below 130/80 mmHg according to current ESC and ADA guidelines."
+    ],
+    "answer": "ACE inhibitors or ARBs are preferred antihypertensives in diabetes with hypertension; target BP is <130/80 mmHg.",
+    "relevant_pmids": [
+      "30165616"
+    ]
+  },
+  {
+    "id": "T005",
+    "category": "treatment",
+    "difficulty": "hard",
+    "question": "What is the treatment algorithm for atrial fibrillation with haemodynamic instability?",
+    "ground_truth": "Haemodynamically unstable AF requires immediate electrical cardioversion (synchronised DC cardioversion). Rate control alone is insufficient. Anticoagulation should be initiated as soon as safely possible.",
+    "contexts": [
+      "Patients with atrial fibrillation causing haemodynamic instability (hypotension, pulmonary oedema, syncope) require immediate direct current cardioversion without delay for anticoagulation loading.",
+      "Following electrical cardioversion, anticoagulation with a DOAC or heparin bridge should be initiated as soon as clinically safe based on bleeding risk assessment."
+    ],
+    "answer": "Haemodynamically unstable AF requires immediate synchronised DC cardioversion, followed by anticoagulation when clinically safe.",
+    "relevant_pmids": [
+      "31090220"
+    ]
+  },
+  {
+    "id": "T006",
+    "category": "treatment",
+    "difficulty": "medium",
+    "question": "What are the treatment options for Helicobacter pylori eradication?",
+    "ground_truth": "Standard triple therapy is PPI + clarithromycin + amoxicillin or metronidazole for 7-14 days. In areas of high clarithromycin resistance, bismuth quadruple therapy (PPI + bismuth + tetracycline + metronidazole) is preferred.",
+    "contexts": [
+      "First-line H. pylori eradication therapy consists of a proton pump inhibitor combined with clarithromycin and amoxicillin (or metronidazole) for 7 to 14 days \u2014 standard triple therapy.",
+      "In regions with clarithromycin resistance >15%, bismuth-based quadruple therapy (PPI, bismuth subcitrate, tetracycline, and metronidazole for 10-14 days) is recommended as first-line."
+    ],
+    "answer": "H. pylori eradication uses PPI + clarithromycin + amoxicillin (triple therapy) or bismuth quadruple therapy in high-resistance areas.",
+    "relevant_pmids": [
+      "27080577"
+    ]
+  },
+  {
+    "id": "T007",
+    "category": "treatment",
+    "difficulty": "easy",
+    "question": "What is the acute management of anaphylaxis?",
+    "ground_truth": "Immediate intramuscular adrenaline (epinephrine) 0.5mg (1:1000) in the lateral thigh is first-line. Remove trigger, lay flat with legs raised, give high-flow oxygen, IV access and fluids, and call emergency services.",
+    "contexts": [
+      "Intramuscular adrenaline 0.5 mg (0.5 mL of 1:1000 solution) administered into the lateral thigh is the immediate first-line treatment for anaphylaxis.",
+      "Additional management includes removal of the allergen trigger, supine positioning with legs elevated, high-flow oxygen, intravenous access with fluid resuscitation, and antihistamines and corticosteroids as adjuncts."
+    ],
+    "answer": "Anaphylaxis is treated immediately with IM adrenaline 0.5mg into the lateral thigh, plus oxygen, IV fluids, and removal of the trigger.",
+    "relevant_pmids": [
+      "28843434"
+    ]
+  },
+  {
+    "id": "T008",
+    "category": "treatment",
+    "difficulty": "medium",
+    "question": "What anticoagulation is recommended for stroke prevention in atrial fibrillation?",
+    "ground_truth": "Direct oral anticoagulants (DOACs: apixaban, rivaroxaban, dabigatran, edoxaban) are preferred over warfarin for stroke prevention in non-valvular AF, guided by CHA\u2082DS\u2082-VASc score \u22652 in men or \u22653 in women.",
+    "contexts": [
+      "Direct oral anticoagulants (DOACs) are recommended in preference to vitamin K antagonists for stroke prevention in patients with non-valvular atrial fibrillation.",
+      "Anticoagulation is recommended when CHA\u2082DS\u2082-VASc score is \u22652 in men and \u22653 in women; individual bleeding risk (HAS-BLED) should also be assessed."
+    ],
+    "answer": "DOACs are preferred over warfarin for stroke prevention in non-valvular AF when CHA\u2082DS\u2082-VASc \u22652 (men) or \u22653 (women).",
+    "relevant_pmids": [
+      "31090220"
+    ]
+  },
+  {
+    "id": "T009",
+    "category": "treatment",
+    "difficulty": "hard",
+    "question": "What is the treatment for acute ischaemic stroke within the thrombolysis window?",
+    "ground_truth": "IV alteplase (0.9 mg/kg, max 90 mg) within 4.5 hours of stroke onset is standard. Mechanical thrombectomy is indicated for large vessel occlusion within 6-24 hours. Aspirin is started 24 hours post-thrombolysis.",
+    "contexts": [
+      "Intravenous alteplase at 0.9 mg/kg (maximum 90 mg) administered within 4.5 hours of acute ischaemic stroke onset remains the standard pharmacological reperfusion therapy.",
+      "Mechanical thrombectomy is indicated for large vessel occlusion in the anterior circulation within 6-24 hours of symptom onset, with significant extension of the therapeutic window in patients with favourable penumbra on advanced imaging."
+    ],
+    "answer": "Acute ischaemic stroke is treated with IV alteplase within 4.5 hours; mechanical thrombectomy is used for large vessel occlusion within 6-24 hours.",
+    "relevant_pmids": [
+      "28052956"
+    ]
+  },
+  {
+    "id": "T010",
+    "category": "treatment",
+    "difficulty": "medium",
+    "question": "What is the pharmacological treatment for osteoporosis in postmenopausal women?",
+    "ground_truth": "Bisphosphonates (alendronate, risedronate, zoledronic acid) are first-line. Denosumab, teriparatide, or romosozumab are used in severe cases or bisphosphonate failure. Calcium and vitamin D supplementation is co-prescribed.",
+    "contexts": [
+      "Bisphosphonates are the first-line pharmacological treatment for postmenopausal osteoporosis, with oral alendronate (weekly) and zoledronic acid (annual infusion) being the most commonly used.",
+      "Denosumab (6-monthly injection), teriparatide (daily injection for 24 months), and romosozumab are alternatives for patients at very high fracture risk or intolerant of bisphosphonates. Calcium and vitamin D supplementation is given to all patients."
+    ],
+    "answer": "Bisphosphonates are first-line for postmenopausal osteoporosis; denosumab, teriparatide, or romosozumab for severe cases; calcium and vitamin D are co-prescribed.",
+    "relevant_pmids": [
+      "28252171"
+    ]
+  },
+  {
+    "id": "T011",
+    "category": "treatment",
+    "difficulty": "easy",
+    "question": "What is the recommended treatment for mild-to-moderate depression?",
+    "ground_truth": "SSRIs (e.g. sertraline, fluoxetine, escitalopram) are first-line pharmacotherapy. Cognitive behavioural therapy (CBT) is equally effective and preferred for mild cases. Combined therapy is recommended for moderate-severe depression.",
+    "contexts": [
+      "Selective serotonin reuptake inhibitors (SSRIs) are the first-line antidepressant treatment due to their efficacy, tolerability, and safety profile; sertraline and escitalopram are frequently recommended.",
+      "Cognitive behavioural therapy (CBT) has equivalent efficacy to antidepressants for mild-to-moderate depression and is recommended as a first-line option, particularly for patients who prefer non-pharmacological treatment."
+    ],
+    "answer": "SSRIs are first-line pharmacotherapy for depression; CBT is equally effective for mild-moderate cases; combined therapy is used for moderate-severe depression.",
+    "relevant_pmids": [
+      "30285050"
+    ]
+  },
+  {
+    "id": "T012",
+    "category": "treatment",
+    "difficulty": "medium",
+    "question": "What is the treatment for acute gout flare?",
+    "ground_truth": "First-line options for acute gout are NSAIDs (e.g. naproxen, indomethacin), colchicine (1mg then 0.5mg one hour later), or corticosteroids (if NSAIDs/colchicine contraindicated). Allopurinol should not be started during a flare.",
+    "contexts": [
+      "The first-line treatment options for acute gout flare are NSAIDs (naproxen 500mg twice daily or indomethacin), colchicine 1mg followed by 0.5mg one hour later, or corticosteroids for those with contraindications.",
+      "Urate-lowering therapy with allopurinol or febuxostat should not be initiated during an acute attack as it may prolong or worsen the flare; it is started 2-4 weeks after resolution."
+    ],
+    "answer": "Acute gout is treated with NSAIDs, colchicine (1mg then 0.5mg), or corticosteroids; allopurinol is not started during the flare.",
+    "relevant_pmids": [
+      "29467577"
+    ]
+  },
+  {
+    "id": "T013",
+    "category": "treatment",
+    "difficulty": "hard",
+    "question": "What is the treatment strategy for multi-drug resistant tuberculosis?",
+    "ground_truth": "MDR-TB treatment uses the BPaL regimen (bedaquiline, pretomanid, linezolid) for 6-9 months (ZeNix trial). Longer WHO-recommended regimens include bedaquiline + fluoroquinolone + injectable + companion drugs for 18-24 months.",
+    "contexts": [
+      "The BPaL regimen (bedaquiline, pretomanid, linezolid) has demonstrated high cure rates in MDR-TB and XDR-TB in the ZeNix trial with a 6-month treatment duration.",
+      "WHO also recommends longer MDR-TB treatment regimens of 18-24 months incorporating bedaquiline, a fluoroquinolone (levofloxacin or moxifloxacin), and companion drugs based on susceptibility testing."
+    ],
+    "answer": "MDR-TB is treated with the BPaL regimen (bedaquiline, pretomanid, linezolid) for 6-9 months, or longer WHO regimens including bedaquiline and fluoroquinolones.",
+    "relevant_pmids": [
+      "33472028"
+    ]
+  },
+  {
+    "id": "T014",
+    "category": "treatment",
+    "difficulty": "medium",
+    "question": "What is the recommended treatment for stable COPD?",
+    "ground_truth": "Stepwise treatment based on symptoms and exacerbation risk: LAMA (tiotropium) or LABA monotherapy for initial treatment, escalating to LAMA+LABA, then LAMA+LABA+ICS for frequent exacerbators. Smoking cessation is essential.",
+    "contexts": [
+      "Stable COPD is managed using a stepwise approach guided by symptom burden and exacerbation history. Initial therapy uses a long-acting muscarinic antagonist (LAMA) or long-acting beta-agonist (LABA) alone.",
+      "Dual bronchodilation (LAMA+LABA) is recommended when monotherapy is insufficient. Triple therapy (LAMA+LABA+inhaled corticosteroid) is reserved for patients with frequent exacerbations, particularly those with blood eosinophils \u2265300 cells/\u03bcL."
+    ],
+    "answer": "Stable COPD is treated with LAMA or LABA, escalating to LAMA+LABA, then triple therapy (LAMA+LABA+ICS) for frequent exacerbators.",
+    "relevant_pmids": [
+      "30168489"
+    ]
+  },
+  {
+    "id": "T015",
+    "category": "treatment",
+    "difficulty": "easy",
+    "question": "What is the first-line treatment for urinary tract infection in women?",
+    "ground_truth": "Nitrofurantoin (5 days) or trimethoprim (7 days) are first-line treatments for uncomplicated UTI in women. Pivmecillinam is an alternative. Fluoroquinolones should be reserved for complicated cases.",
+    "contexts": [
+      "First-line antibiotics for uncomplicated urinary tract infection in women include nitrofurantoin 100mg modified-release twice daily for 5 days and trimethoprim 200mg twice daily for 7 days.",
+      "Fluoroquinolones (ciprofloxacin, ofloxacin) should be avoided as first-line treatment to preserve their utility and reduce resistance; they are reserved for complicated or upper urinary tract infections."
+    ],
+    "answer": "Nitrofurantoin (5 days) or trimethoprim (7 days) are first-line treatments for uncomplicated UTI in women; fluoroquinolones are reserved for complicated cases.",
+    "relevant_pmids": [
+      "27473450"
+    ]
+  },
+  {
+    "id": "DI001",
+    "category": "drug_interactions",
+    "difficulty": "medium",
+    "question": "What is the interaction between warfarin and NSAIDs?",
+    "ground_truth": "NSAIDs increase bleeding risk with warfarin through two mechanisms: pharmacodynamic (additive antiplatelet/GI mucosal effects) and pharmacokinetic (some NSAIDs inhibit CYP2C9, increasing warfarin levels). This combination should generally be avoided.",
+    "contexts": [
+      "NSAIDs combined with warfarin significantly increase the risk of major bleeding, particularly gastrointestinal haemorrhage, through pharmacodynamic interaction \u2014 both agents impair platelet function and gastric mucosal integrity.",
+      "Some NSAIDs, particularly phenylbutazone and azapropazone, also inhibit CYP2C9, the primary metabolic pathway for S-warfarin, thereby increasing plasma warfarin concentrations and anticoagulant effect."
+    ],
+    "answer": "NSAIDs increase bleeding risk with warfarin via additive antiplatelet/GI effects and CYP2C9 inhibition; this combination should generally be avoided.",
+    "relevant_pmids": [
+      "19778905"
+    ]
+  },
+  {
+    "id": "DI002",
+    "category": "drug_interactions",
+    "difficulty": "hard",
+    "question": "What is the mechanism and clinical significance of the interaction between statins and clarithromycin?",
+    "ground_truth": "Clarithromycin is a potent CYP3A4 inhibitor. Statins metabolised by CYP3A4 (simvastatin, lovastatin, atorvastatin) have markedly increased plasma concentrations, raising risk of myopathy and rhabdomyolysis. Simvastatin and lovastatin should be withheld.",
+    "contexts": [
+      "Clarithromycin is a potent inhibitor of CYP3A4 and P-glycoprotein. When co-administered with CYP3A4-metabolised statins such as simvastatin or lovastatin, plasma statin concentrations can increase dramatically \u2014 up to 10-fold for simvastatin.",
+      "This interaction substantially increases the risk of statin-induced myopathy and rhabdomyolysis. Simvastatin and lovastatin should be temporarily withheld during clarithromycin treatment; atorvastatin requires dose caution; pravastatin and rosuvastatin are safer alternatives."
+    ],
+    "answer": "Clarithromycin inhibits CYP3A4, markedly increasing simvastatin and lovastatin levels and rhabdomyolysis risk; simvastatin should be withheld during treatment.",
+    "relevant_pmids": [
+      "22513270"
+    ]
+  },
+  {
+    "id": "DI003",
+    "category": "drug_interactions",
+    "difficulty": "medium",
+    "question": "What is the clinical significance of combining ACE inhibitors with potassium-sparing diuretics?",
+    "ground_truth": "ACE inhibitors reduce aldosterone, decreasing potassium excretion. Combined with potassium-sparing diuretics (spironolactone, amiloride) or potassium supplements, this risks severe hyperkalaemia, which can cause life-threatening cardiac arrhythmias.",
+    "contexts": [
+      "ACE inhibitors reduce angiotensin II-mediated aldosterone release, thereby decreasing renal potassium excretion. When combined with potassium-sparing diuretics (spironolactone, eplerenone, amiloride) or potassium supplements, the risk of hyperkalaemia is substantially increased.",
+      "Severe hyperkalaemia (>6.5 mmol/L) can cause life-threatening cardiac arrhythmias including ventricular fibrillation. Potassium levels must be monitored closely when these agents are used together, particularly in patients with renal impairment."
+    ],
+    "answer": "ACE inhibitors with potassium-sparing diuretics risk severe hyperkalaemia and cardiac arrhythmias; potassium monitoring is essential.",
+    "relevant_pmids": [
+      "19778905"
+    ]
+  },
+  {
+    "id": "DI004",
+    "category": "drug_interactions",
+    "difficulty": "medium",
+    "question": "What is the interaction between methotrexate and NSAIDs?",
+    "ground_truth": "NSAIDs reduce renal blood flow and tubular secretion of methotrexate, increasing plasma methotrexate levels and risk of toxicity (bone marrow suppression, hepatotoxicity, mucositis). This combination requires caution and monitoring.",
+    "contexts": [
+      "NSAIDs inhibit prostaglandin synthesis, reducing renal blood flow and glomerular filtration, which decreases methotrexate clearance. NSAIDs also compete with methotrexate for tubular secretion pathways.",
+      "This interaction can lead to significantly elevated methotrexate plasma levels and increased risk of methotrexate toxicity, including myelosuppression, mucositis, and hepatotoxicity, even at low methotrexate doses used for rheumatoid arthritis."
+    ],
+    "answer": "NSAIDs reduce methotrexate renal clearance by decreasing GFR and tubular secretion, increasing toxicity risk including myelosuppression and mucositis.",
+    "relevant_pmids": [
+      "19778905"
+    ]
+  },
+  {
+    "id": "DI005",
+    "category": "drug_interactions",
+    "difficulty": "hard",
+    "question": "What is the serotonin syndrome risk with combining SSRIs and tramadol?",
+    "ground_truth": "Tramadol inhibits serotonin and noradrenaline reuptake and is a weak serotonin releaser. Combined with SSRIs, this significantly increases serotonin syndrome risk \u2014 characterised by hyperthermia, agitation, tremor, hyperreflexia, and clonus.",
+    "contexts": [
+      "Tramadol has serotonergic activity through inhibition of serotonin and noradrenaline reuptake and weak serotonin releasing effects. When combined with SSRIs, it can precipitate serotonin syndrome through additive serotonergic mechanisms.",
+      "Serotonin syndrome presents with the Hunter criteria triad: neurotoxicity (tremor, clonus, hyperreflexia), autonomic instability (tachycardia, hyperthermia, diaphoresis), and altered mental status (agitation, confusion). This combination should be used with extreme caution."
+    ],
+    "answer": "Tramadol combined with SSRIs risks serotonin syndrome via additive serotonergic effects; features include hyperthermia, agitation, clonus, and hyperreflexia.",
+    "relevant_pmids": [
+      "18704022"
+    ]
+  },
+  {
+    "id": "DI006",
+    "category": "drug_interactions",
+    "difficulty": "medium",
+    "question": "How does rifampicin affect the efficacy of oral contraceptives?",
+    "ground_truth": "Rifampicin is a potent CYP3A4 and P-glycoprotein inducer that significantly increases the metabolism of oestrogen and progestogen in combined oral contraceptives, reducing their plasma levels and contraceptive efficacy. Additional contraception is required.",
+    "contexts": [
+      "Rifampicin is one of the most potent inducers of cytochrome P450 3A4 and P-glycoprotein. It dramatically accelerates the hepatic metabolism of oestradiol and progestins in oral contraceptives.",
+      "This interaction substantially reduces contraceptive plasma concentrations, leading to contraceptive failure. Women on rifampicin must use additional non-hormonal contraceptive methods during treatment and for at least 28 days after stopping rifampicin."
+    ],
+    "answer": "Rifampicin induces CYP3A4, accelerating oestrogen and progestogen metabolism and reducing oral contraceptive efficacy; additional contraception is required.",
+    "relevant_pmids": [
+      "22513270"
+    ]
+  },
+  {
+    "id": "DI007",
+    "category": "drug_interactions",
+    "difficulty": "hard",
+    "question": "What is the pharmacokinetic interaction between digoxin and amiodarone?",
+    "ground_truth": "Amiodarone inhibits P-glycoprotein and reduces renal clearance of digoxin, increasing digoxin plasma levels by 70-100%. Digoxin dose should be reduced by 50% when amiodarone is initiated, with close monitoring for toxicity.",
+    "contexts": [
+      "Amiodarone inhibits P-glycoprotein-mediated tubular secretion of digoxin in the kidneys, reducing digoxin clearance by approximately 50%. This results in a 70 to 100% increase in steady-state digoxin plasma concentrations.",
+      "Digoxin toxicity risk is significantly elevated; clinical manifestations include bradycardia, heart block, nausea, and visual disturbances. The digoxin dose should be halved when amiodarone is introduced, with frequent monitoring of digoxin levels and ECG."
+    ],
+    "answer": "Amiodarone inhibits P-glycoprotein, reducing digoxin clearance by 50% and increasing digoxin levels 70-100%; halve the digoxin dose when starting amiodarone.",
+    "relevant_pmids": [
+      "22513270"
+    ]
+  },
+  {
+    "id": "DI008",
+    "category": "drug_interactions",
+    "difficulty": "medium",
+    "question": "What is the interaction between lithium and NSAIDs or thiazide diuretics?",
+    "ground_truth": "NSAIDs and thiazide diuretics both reduce renal lithium excretion, increasing lithium plasma levels and risk of toxicity (coarse tremor, confusion, ataxia, cardiac arrhythmias). Lithium levels must be monitored closely.",
+    "contexts": [
+      "NSAIDs reduce prostaglandin-mediated renal blood flow and decrease lithium clearance, increasing lithium plasma concentrations by up to 25-60%.",
+      "Thiazide diuretics cause sodium depletion, which triggers compensatory sodium and lithium reabsorption in the proximal tubule, reducing lithium excretion by approximately 25%. Both drug classes increase the risk of lithium toxicity."
+    ],
+    "answer": "NSAIDs and thiazides both reduce renal lithium clearance, raising plasma levels and toxicity risk; lithium levels must be monitored when starting these agents.",
+    "relevant_pmids": [
+      "19778905"
+    ]
+  },
+  {
+    "id": "DI009",
+    "category": "drug_interactions",
+    "difficulty": "easy",
+    "question": "Why should MAO inhibitors not be combined with meperidine (pethidine)?",
+    "ground_truth": "The combination causes serotonin syndrome through additive serotonergic effects \u2014 MAOIs block monoamine oxidation while meperidine inhibits serotonin reuptake. This can cause hyperthermia, seizures, cardiovascular collapse, and death. It is absolutely contraindicated.",
+    "contexts": [
+      "Meperidine (pethidine) inhibits serotonin reuptake and has serotonergic properties. When combined with MAO inhibitors, which prevent serotonin breakdown, additive serotonergic toxicity causes severe serotonin syndrome.",
+      "The clinical syndrome includes hyperthermia, muscle rigidity, seizures, cardiovascular instability, and can be fatal. This combination is absolutely contraindicated; the washout period for irreversible MAOIs is at least 14 days before meperidine can be used."
+    ],
+    "answer": "MAOI + meperidine causes serotonin syndrome via additive serotonergic effects \u2014 hyperthermia, rigidity, seizures, cardiovascular collapse; absolutely contraindicated.",
+    "relevant_pmids": [
+      "18704022"
+    ]
+  },
+  {
+    "id": "DI010",
+    "category": "drug_interactions",
+    "difficulty": "medium",
+    "question": "What is the interaction between fluconazole and warfarin?",
+    "ground_truth": "Fluconazole inhibits CYP2C9, the primary enzyme metabolising S-warfarin (the more potent enantiomer). This increases warfarin exposure and anticoagulant effect, with significant INR elevation. Warfarin dose reduction and INR monitoring are required.",
+    "contexts": [
+      "Fluconazole is a potent inhibitor of CYP2C9 and moderate inhibitor of CYP3A4. S-warfarin, the pharmacologically more active enantiomer, is primarily metabolised by CYP2C9.",
+      "Inhibition of CYP2C9 by fluconazole leads to a significant increase in S-warfarin plasma concentrations, resulting in clinically meaningful INR elevation and increased bleeding risk. Warfarin dose reduction of 25-50% may be required, with frequent INR monitoring during and after fluconazole course."
+    ],
+    "answer": "Fluconazole inhibits CYP2C9, increasing S-warfarin levels and INR; warfarin dose reduction and close INR monitoring are required.",
+    "relevant_pmids": [
+      "22513270"
+    ]
+  },
+  {
+    "id": "CG001",
+    "category": "clinical_guidelines",
+    "difficulty": "medium",
+    "question": "What are the NICE guidelines for the management of stable angina?",
+    "ground_truth": "NICE recommends aspirin 75mg plus a statin (regardless of cholesterol), sublingual GTN for acute episodes, and either a beta-blocker or rate-limiting calcium channel blocker as initial anti-anginal therapy. ACE inhibitors are added if hypertension or diabetes coexists.",
+    "contexts": [
+      "NICE guidelines for stable angina recommend aspirin 75mg daily and a statin for all patients regardless of lipid levels. Sublingual glyceryl trinitrate (GTN) is prescribed for acute symptom relief.",
+      "First-line anti-anginal therapy is either a beta-blocker or a rate-limiting calcium channel blocker (verapamil or diltiazem). Second-line options include long-acting nitrates, ivabradine, or ranolazine if first-line therapy is insufficient or not tolerated."
+    ],
+    "answer": "NICE recommends aspirin + statin for all stable angina patients, sublingual GTN for acute episodes, and beta-blocker or rate-limiting CCB as initial anti-anginal therapy.",
+    "relevant_pmids": [
+      "27015611"
+    ]
+  },
+  {
+    "id": "CG002",
+    "category": "clinical_guidelines",
+    "difficulty": "hard",
+    "question": "What are the ESC guidelines for antithrombotic therapy following PCI?",
+    "ground_truth": "Post-PCI dual antiplatelet therapy (DAPT) with aspirin plus a P2Y12 inhibitor (ticagrelor or prasugrel preferred over clopidogrel for ACS) for 6-12 months is standard. Duration may be shortened to 1-3 months in high-bleeding-risk patients.",
+    "contexts": [
+      "The ESC recommends dual antiplatelet therapy (DAPT) with aspirin plus a P2Y12 inhibitor for 6 to 12 months following PCI. Ticagrelor or prasugrel are preferred over clopidogrel for ACS patients due to superior efficacy.",
+      "In patients at high bleeding risk (defined by the ARC-HBR criteria), DAPT duration may be shortened to 1 to 3 months after PCI, followed by single antiplatelet therapy. Bleeding risk must be balanced against ischaemic risk."
+    ],
+    "answer": "ESC guidelines recommend DAPT (aspirin + ticagrelor or prasugrel) for 6-12 months post-PCI; 1-3 months in high-bleeding-risk patients.",
+    "relevant_pmids": [
+      "27222654"
+    ]
+  },
+  {
+    "id": "CG003",
+    "category": "clinical_guidelines",
+    "difficulty": "medium",
+    "question": "What are the WHO criteria for initiating antiretroviral therapy in HIV?",
+    "ground_truth": "WHO recommends ART initiation for all HIV-positive individuals regardless of CD4 count or clinical stage, as soon as possible after diagnosis. Preferred first-line regimen is TDF + 3TC + DTG.",
+    "contexts": [
+      "The WHO 2021 guidelines recommend initiating antiretroviral therapy for all people living with HIV regardless of CD4 cell count and clinical stage, as rapidly as possible and ideally on the same day as diagnosis.",
+      "The preferred first-line ART regimen is tenofovir disoproxil fumarate (TDF) + lamivudine (3TC) + dolutegravir (DTG), due to its high efficacy, tolerability, and high genetic barrier to resistance."
+    ],
+    "answer": "WHO recommends ART for all HIV-positive people regardless of CD4 count; preferred first-line is TDF + 3TC + DTG, started as soon as possible after diagnosis.",
+    "relevant_pmids": [
+      "33557420"
+    ]
+  },
+  {
+    "id": "CG004",
+    "category": "clinical_guidelines",
+    "difficulty": "medium",
+    "question": "What is the recommended blood pressure target in patients with established cardiovascular disease?",
+    "ground_truth": "ESC/ESH guidelines recommend a target systolic BP of 120-130 mmHg in most patients with established CVD (coronary artery disease, stroke, PAD), if tolerated. The target is <130/80 mmHg generally.",
+    "contexts": [
+      "The 2018 ESC/ESH guidelines on arterial hypertension recommend a target blood pressure of 120-130 mmHg systolic for patients with established cardiovascular disease including coronary artery disease, stroke, and peripheral artery disease.",
+      "For most hypertensive patients, the recommended target is below 130/80 mmHg, with systolic pressure between 120-130 mmHg as the optimal range where trial evidence shows cardiovascular benefit without excess harm."
+    ],
+    "answer": "ESC/ESH guidelines recommend systolic BP 120-130 mmHg in established CVD; general target is <130/80 mmHg if tolerated.",
+    "relevant_pmids": [
+      "30165616"
+    ]
+  },
+  {
+    "id": "CG005",
+    "category": "clinical_guidelines",
+    "difficulty": "hard",
+    "question": "What are the GOLD guidelines for initiating pharmacological treatment in COPD?",
+    "ground_truth": "GOLD 2023 categorises patients as A, B, or E. Group A (low symptoms, low risk): short-acting bronchodilator. Group B (high symptoms, low risk): long-acting bronchodilator (LABA or LAMA). Group E (high exacerbation risk): LAMA+LABA, with ICS added if eosinophils \u2265300.",
+    "contexts": [
+      "GOLD 2023 guidelines classify newly-diagnosed COPD patients into groups A, B, and E based on symptom burden (mMRC/CAT score) and exacerbation history. Group A patients with few symptoms receive a short-acting bronchodilator as needed.",
+      "Group B patients with significant symptoms despite low exacerbation risk receive a long-acting bronchodilator \u2014 either LABA or LAMA. Group E patients (2+ exacerbations or 1 hospitalisation) are started on dual LAMA+LABA combination; ICS is added if blood eosinophils \u2265300 cells/\u03bcL."
+    ],
+    "answer": "GOLD 2023: Group A = short-acting bronchodilator; Group B = LABA or LAMA; Group E = LAMA+LABA (add ICS if eosinophils \u2265300).",
+    "relevant_pmids": [
+      "30168489"
+    ]
+  },
+  {
+    "id": "CG006",
+    "category": "clinical_guidelines",
+    "difficulty": "medium",
+    "question": "What does NICE recommend for the prevention of contrast-induced nephropathy?",
+    "ground_truth": "NICE recommends intravenous isotonic saline (0.9% NaCl) before and after contrast administration as the primary prevention strategy. N-acetylcysteine is no longer recommended. Low-osmolality or iso-osmolality contrast agents should be used.",
+    "contexts": [
+      "NICE and ESC guidelines recommend IV isotonic 0.9% saline (0.9% NaCl) as the primary preventive measure for contrast-induced nephropathy, administered at 1 mL/kg/hour for at least 6 hours before and after contrast administration.",
+      "N-acetylcysteine (acetylcysteine) is no longer recommended for prevention of contrast-induced nephropathy as large randomised trials (PRESERVE trial) showed no benefit. Low-osmolality or iso-osmolality iodinated contrast media should be used in at-risk patients."
+    ],
+    "answer": "IV isotonic saline before and after contrast is recommended for CIN prevention; N-acetylcysteine is no longer recommended; use low-osmolality contrast agents.",
+    "relevant_pmids": [
+      "29765823"
+    ]
+  },
+  {
+    "id": "CG007",
+    "category": "clinical_guidelines",
+    "difficulty": "easy",
+    "question": "What vaccinations are recommended for adults with chronic liver disease?",
+    "ground_truth": "Adults with chronic liver disease should receive hepatitis A vaccine (2 doses), hepatitis B vaccine (3 doses), annual influenza vaccine, and pneumococcal vaccine. HAV and HBV vaccination prevents superinfection in those with underlying liver disease.",
+    "contexts": [
+      "Patients with chronic liver disease are recommended to receive hepatitis A virus (HAV) and hepatitis B virus (HBV) vaccination to prevent superinfection, which carries high risk of acute liver failure.",
+      "Annual influenza vaccination and pneumococcal polysaccharide vaccine (with booster every 5 years) are also recommended. COVID-19 vaccination is additionally recommended in this at-risk group."
+    ],
+    "answer": "Hepatitis A (2 doses), hepatitis B (3 doses), annual influenza, and pneumococcal vaccines are recommended for adults with chronic liver disease.",
+    "relevant_pmids": [
+      "27015611"
+    ]
+  },
+  {
+    "id": "CG008",
+    "category": "clinical_guidelines",
+    "difficulty": "hard",
+    "question": "What are the ACC/AHA guidelines for statin therapy in primary prevention?",
+    "ground_truth": "ACC/AHA 2019 guidelines recommend high-intensity statins for primary prevention in adults 40-75 years with LDL \u2265190 mg/dL or diabetes. For 10-year CVD risk \u22657.5-10%, moderate-high intensity statins are recommended after shared decision-making.",
+    "contexts": [
+      "The 2019 ACC/AHA guidelines recommend high-intensity statin therapy for primary prevention in adults aged 40-75 with LDL-C \u2265190 mg/dL regardless of estimated cardiovascular risk, and in all patients with diabetes aged 40-75 years.",
+      "For patients aged 40-75 years with a 10-year ASCVD risk \u22657.5 to 10%, moderate-to-high intensity statin therapy is reasonable after a clinician-patient discussion of risk-benefit, incorporating risk-enhancing factors such as family history, hs-CRP, and coronary artery calcium score."
+    ],
+    "answer": "ACC/AHA 2019 recommends high-intensity statins for LDL \u2265190 or diabetes (age 40-75); moderate-high statins for 10-year risk \u22657.5-10% after shared decision-making.",
+    "relevant_pmids": [
+      "30571126"
+    ]
+  },
+  {
+    "id": "CG009",
+    "category": "clinical_guidelines",
+    "difficulty": "medium",
+    "question": "What are the KDIGO guidelines for blood pressure targets in chronic kidney disease?",
+    "ground_truth": "KDIGO 2021 recommends a target systolic BP of <120 mmHg in CKD patients not on dialysis who can tolerate intensive treatment (using standardised office measurement). ACE inhibitors or ARBs are preferred antihypertensives in CKD with albuminuria.",
+    "contexts": [
+      "The 2021 KDIGO Blood Pressure guidelines recommend a target systolic blood pressure of less than 120 mmHg for patients with CKD not receiving dialysis, based on standardised office blood pressure measurement, in those who can tolerate intensive BP lowering.",
+      "Renin-angiotensin system inhibitors (ACE inhibitors or ARBs) are the preferred antihypertensive agents in CKD patients with an albumin-creatinine ratio \u2265300 mg/g due to their additional renoprotective effects."
+    ],
+    "answer": "KDIGO 2021 recommends systolic BP <120 mmHg in CKD (standardised measurement); ACE inhibitors or ARBs preferred with albuminuria.",
+    "relevant_pmids": [
+      "22765297"
+    ]
+  },
+  {
+    "id": "CG010",
+    "category": "clinical_guidelines",
+    "difficulty": "easy",
+    "question": "What is the recommended cervical cancer screening interval according to current guidelines?",
+    "ground_truth": "UK NHS recommends cervical screening every 3 years for women aged 25-49 and every 5 years for ages 50-64. HPV primary testing is used; positive HPV samples are triaged with cytology. Vaccination with HPV vaccine reduces screening risk.",
+    "contexts": [
+      "The NHS cervical screening programme invites women aged 25-49 every 3 years and women aged 50-64 every 5 years for cervical screening. Women are discharged after a negative screen at age 65.",
+      "Since 2019, the NHS has adopted HPV primary screening: samples are first tested for high-risk HPV; if positive, cytology is performed on the same sample. HPV-negative samples require no further action until the next routine screening interval."
+    ],
+    "answer": "NHS cervical screening is every 3 years (25-49) and 5 years (50-64), using HPV primary testing with cytology triage for HPV-positive samples.",
+    "relevant_pmids": [
+      "30571126"
+    ]
+  }
+]

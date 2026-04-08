@@ -1,0 +1,5 @@
+ragas>=0.1.7
+langchain-community>=0.0.30
+ollama              # Ollama Python client (optional, LC handles it)
+mlflow>=2.12
+datasets>=2.18
