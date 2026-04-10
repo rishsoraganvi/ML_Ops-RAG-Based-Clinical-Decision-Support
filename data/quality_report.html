@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>RAGOps Data Quality Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+    h1 { color: #2c3e50; }
+    h2 { color: #34495e; border-bottom: 1px solid #ccc; padding-bottom: 6px; }
+    table { border-collapse: collapse; width: 100%; max-width: 600px; margin-bottom: 30px; }
+    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    th { background: #f4f4f4; font-weight: bold; }
+    .stat { background: #eaf4fb; border-left: 4px solid #3498db;
+             padding: 10px 16px; margin: 8px 0; border-radius: 4px; }
+    .good { border-color: green; background: #eaffea; }
+    .warn { border-color: orange; background: #fff8e1; }
+    .bad  { border-color: red;   background: #ffeaea; }
+  </style>
+</head>
+<body>
+  <h1>RAGOps — Data Quality Report</h1>
+  <p>Generated from: <code>data/processed/pubmed_processed.jsonl</code></p>
+
+  <h2>Overview</h2>
+  <div class="stat good">Total records: <strong>4667</strong></div>
+  <div class="stat good">
+    Duplicate PMIDs: <strong>0</strong>
+  </div>
+  <div class="stat good">
+    Missing abstracts: <strong>0</strong>
+  </div>
+  <div class="stat good">
+    Missing titles: <strong>0</strong>
+  </div>
+
+  <h2>Abstract length distribution</h2>
+  <div class="stat">Min word count: <strong>2</strong></div>
+  <div class="stat">Max word count: <strong>1982</strong></div>
+  <div class="stat">Average word count: <strong>243.2</strong></div>
+  <div class="stat warn">
+    Records under 50 words (too short): <strong>148</strong>
+  </div>
+
+  <h2>MeSH term coverage</h2>
+  <div class="stat">Records with MeSH terms: <strong>2703</strong>
+    (57.9%)</div>
+  <table>
+    <tr><th>MeSH term</th><th>Count</th></tr>
+    <tr><td>Humans</td><td>2528</td></tr><tr><td>Female</td><td>1341</td></tr><tr><td>Male</td><td>1210</td></tr><tr><td>Middle Aged</td><td>851</td></tr><tr><td>Adult</td><td>829</td></tr><tr><td>Aged</td><td>601</td></tr><tr><td>Practice Guidelines as Topic</td><td>601</td></tr><tr><td>Treatment Outcome</td><td>388</td></tr><tr><td>Randomized Controlled Trials as Topic</td><td>365</td></tr><tr><td>Animals</td><td>262</td></tr>
+  </table>
+
+  <h2>Publication date distribution</h2>
+  <div class="stat warn">Unknown dates: <strong>4</strong></div>
+  <table>
+    <tr><th>Year</th><th>Records</th></tr>
+    <tr><td>2024</td><td>1</td></tr><tr><td>2025</td><td>314</td></tr><tr><td>2026</td><td>4346</td></tr><tr><td>2027</td><td>1</td></tr><tr><td>2028</td><td>1</td></tr>
+  </table>
+
+  <p style="color:green">No duplicate PMIDs found.</p>
+</body>
+</html>
