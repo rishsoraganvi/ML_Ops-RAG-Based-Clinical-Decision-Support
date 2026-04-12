@@ -39,14 +39,13 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from itertools import product
 from pathlib import Path
-from typing import Any
 
 import mlflow
 import numpy as np
 import pandas as pd
 
 # ragops_eval must be on PYTHONPATH (same directory is fine)
-from ragops_eval import run_eval, MLFLOW_EXPERIMENT, MLFLOW_TRACKING_URI
+from evaluation.ragas_runner import run_eval, MLFLOW_EXPERIMENT, MLFLOW_TRACKING_URI
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -76,13 +75,13 @@ _set_seeds()
 # ---------------------------------------------------------------------------
 
 CHUNK_SIZES: list[int] = [256, 512, 1024]
-RETRIEVERS:  list[str] = ["bm25", "dense", "hybrid"]
-TOP_K:       int       = int(os.getenv("ABLATION_TOP_K", "5"))
+RETRIEVERS: list[str] = ["bm25", "dense", "hybrid"]
+TOP_K: int = int(os.getenv("ABLATION_TOP_K", "5"))
 
 # Output paths
-OUTPUT_DIR  = Path(os.getenv("ABLATION_OUTPUT_DIR", "ablation_outputs"))
-CSV_PATH    = OUTPUT_DIR / "ablation_results.csv"
-JSON_PATH   = OUTPUT_DIR / "ablation_results.json"
+OUTPUT_DIR = Path(os.getenv("ABLATION_OUTPUT_DIR", "ablation_outputs"))
+CSV_PATH = OUTPUT_DIR / "ablation_results.csv"
+JSON_PATH = OUTPUT_DIR / "ablation_results.json"
 
 # Parallel workers — default 9 (one per config); override via CLI or env
 DEFAULT_WORKERS: int = int(os.getenv("ABLATION_WORKERS", "9"))
@@ -92,37 +91,40 @@ DEFAULT_WORKERS: int = int(os.getenv("ABLATION_WORKERS", "9"))
 # Config dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AblationConfig:
     """One cell in the ablation grid."""
-    config_id:  str        # e.g. "C01"
+
+    config_id: str  # e.g. "C01"
     chunk_size: int
-    retriever:  str
-    top_k:      int = TOP_K
+    retriever: str
+    top_k: int = TOP_K
 
     # Runtime fields — populated after eval
-    faithfulness:      float | None = field(default=None, repr=False)
-    context_recall:    float | None = field(default=None, repr=False)
-    answer_relevance:  float | None = field(default=None, repr=False)
+    faithfulness: float | None = field(default=None, repr=False)
+    context_recall: float | None = field(default=None, repr=False)
+    answer_relevance: float | None = field(default=None, repr=False)
     context_precision: float | None = field(default=None, repr=False)
-    mlflow_run_id:     str   | None = field(default=None, repr=False)
-    latency_s:         float | None = field(default=None, repr=False)
-    status:            str          = field(default="pending", repr=False)
-    error:             str   | None = field(default=None, repr=False)
+    mlflow_run_id: str | None = field(default=None, repr=False)
+    latency_s: float | None = field(default=None, repr=False)
+    status: str = field(default="pending", repr=False)
+    error: str | None = field(default=None, repr=False)
 
     def to_config_dict(self) -> dict:
         """Subset passed to run_eval() and logged to MLflow."""
         return {
-            "config_id":  self.config_id,
+            "config_id": self.config_id,
             "chunk_size": self.chunk_size,
-            "retriever":  self.retriever,
-            "top_k":      self.top_k,
+            "retriever": self.retriever,
+            "top_k": self.top_k,
         }
 
 
 # ---------------------------------------------------------------------------
 # Grid builder
 # ---------------------------------------------------------------------------
+
 
 def build_ablation_grid() -> list[AblationConfig]:
     """
@@ -146,7 +148,10 @@ def build_ablation_grid() -> list[AblationConfig]:
 
     log.info(
         "Ablation grid: %d configs | chunk_sizes=%s | retrievers=%s | top_k=%d",
-        len(configs), CHUNK_SIZES, RETRIEVERS, TOP_K,
+        len(configs),
+        CHUNK_SIZES,
+        RETRIEVERS,
+        TOP_K,
     )
     return configs
 
@@ -154,6 +159,7 @@ def build_ablation_grid() -> list[AblationConfig]:
 # ---------------------------------------------------------------------------
 # Per-config worker  (runs in a subprocess via ProcessPoolExecutor)
 # ---------------------------------------------------------------------------
+
 
 def _eval_one_config(
     cfg_dict: dict,
@@ -170,9 +176,13 @@ def _eval_one_config(
     _set_seeds(seed)
 
     config_id = cfg_dict["config_id"]
-    log.info("[%s] Starting — chunk=%d retriever=%s top_k=%d",
-             config_id, cfg_dict["chunk_size"],
-             cfg_dict["retriever"], cfg_dict["top_k"])
+    log.info(
+        "[%s] Starting — chunk=%d retriever=%s top_k=%d",
+        config_id,
+        cfg_dict["chunk_size"],
+        cfg_dict["retriever"],
+        cfg_dict["top_k"],
+    )
 
     # Determine config-specific per-question output path up front so that
     # parallel workers never share a common temp file.
@@ -209,16 +219,20 @@ def _eval_one_config(
         )
         run_id = runs[0].info.run_id if runs else None
 
-        log.info("[%s] Done in %.1fs — faithfulness=%.4f",
-                 config_id, elapsed, scores.get("faithfulness", 0))
+        log.info(
+            "[%s] Done in %.1fs — faithfulness=%.4f",
+            config_id,
+            elapsed,
+            scores.get("faithfulness", 0),
+        )
 
         return {
             **cfg_dict,
             **scores,
             "mlflow_run_id": run_id,
-            "latency_s":     round(elapsed, 2),
-            "status":        "success",
-            "error":         None,
+            "latency_s": round(elapsed, 2),
+            "status": "success",
+            "error": None,
         }
 
     except Exception as exc:  # noqa: BLE001
@@ -226,14 +240,14 @@ def _eval_one_config(
         log.error("[%s] FAILED after %.1fs: %s", config_id, elapsed, exc)
         return {
             **cfg_dict,
-            "faithfulness":      None,
-            "context_recall":    None,
-            "answer_relevance":  None,
+            "faithfulness": None,
+            "context_recall": None,
+            "answer_relevance": None,
             "context_precision": None,
-            "mlflow_run_id":     None,
-            "latency_s":         round(elapsed, 2),
-            "status":            "failed",
-            "error":             traceback.format_exc(limit=5),
+            "mlflow_run_id": None,
+            "latency_s": round(elapsed, 2),
+            "status": "failed",
+            "error": traceback.format_exc(limit=5),
         }
 
 
@@ -267,6 +281,7 @@ def _eval_one_config(
 # Main ablation runner
 # ---------------------------------------------------------------------------
 
+
 def run_ablation(
     qa_pairs: list[dict],
     configs: list[AblationConfig] | None = None,
@@ -296,15 +311,17 @@ def run_ablation(
     if dry_run:
         log.info("DRY RUN — ablation grid:")
         for c in configs:
-            print(f"  {c.config_id}: chunk={c.chunk_size} "
-                  f"retriever={c.retriever} top_k={c.top_k}")
+            print(
+                f"  {c.config_id}: chunk={c.chunk_size} "
+                f"retriever={c.retriever} top_k={c.top_k}"
+            )
         return pd.DataFrame([asdict(c) for c in configs])
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    n_configs   = len(configs)
+    n_configs = len(configs)
     n_questions = len(qa_pairs)
-    n_total     = n_configs * n_questions
+    n_total = n_configs * n_questions
 
     # Warn when using SQLite with multiple workers — concurrent writes frequently
     # cause "database is locked" errors.  Use file-based mlruns/ or a proper
@@ -320,12 +337,15 @@ def run_ablation(
 
     log.info(
         "Ablation start | configs=%d | questions=%d | total_evals=%d | workers=%d",
-        n_configs, n_questions, n_total, workers,
+        n_configs,
+        n_questions,
+        n_total,
+        workers,
     )
 
     # ── Parallel execution ──────────────────────────────────────────────
     results: list[dict] = []
-    failed:  list[str]  = []
+    failed: list[str] = []
 
     # Submit all configs concurrently
     with ProcessPoolExecutor(max_workers=workers) as executor:
@@ -356,9 +376,18 @@ def run_ablation(
 
     # Canonical column order for Paper TABLE 1
     col_order = [
-        "config_id", "chunk_size", "retriever", "top_k",
-        "faithfulness", "context_recall", "answer_relevance", "context_precision",
-        "mlflow_run_id", "latency_s", "status", "error",
+        "config_id",
+        "chunk_size",
+        "retriever",
+        "top_k",
+        "faithfulness",
+        "context_recall",
+        "answer_relevance",
+        "context_precision",
+        "mlflow_run_id",
+        "latency_s",
+        "status",
+        "error",
     ]
     df = df.reindex(columns=[c for c in col_order if c in df.columns])
     df = df.sort_values("config_id").reset_index(drop=True)
@@ -376,6 +405,7 @@ def run_ablation(
 # Output helpers
 # ---------------------------------------------------------------------------
 
+
 def _save_outputs(df: pd.DataFrame) -> None:
     """Save CSV and JSON with MLflow run IDs linked."""  # PAPER RESULT — TABLE 1
 
@@ -390,14 +420,16 @@ def _save_outputs(df: pd.DataFrame) -> None:
             {
                 "ablation_grid": {
                     "chunk_sizes": CHUNK_SIZES,
-                    "retrievers":  RETRIEVERS,
-                    "top_k":       TOP_K,
+                    "retrievers": RETRIEVERS,
+                    "top_k": TOP_K,
                 },
                 "mlflow_experiment": MLFLOW_EXPERIMENT,
                 "mlflow_tracking_uri": MLFLOW_TRACKING_URI,
                 "results": records,
             },
-            f, indent=2, default=str,
+            f,
+            indent=2,
+            default=str,
         )
     log.info("Saved JSON → %s", JSON_PATH)
 
@@ -405,8 +437,12 @@ def _save_outputs(df: pd.DataFrame) -> None:
 def _print_summary(df: pd.DataFrame, failed: list[str]) -> None:
     """Print Paper TABLE 1 to stdout."""  # PAPER RESULT — TABLE 1
 
-    metric_cols = ["faithfulness", "context_recall",
-                   "answer_relevance", "context_precision"]
+    metric_cols = [
+        "faithfulness",
+        "context_recall",
+        "answer_relevance",
+        "context_precision",
+    ]
 
     success_df = df[df["status"] == "success"]
 
@@ -416,8 +452,9 @@ def _print_summary(df: pd.DataFrame, failed: list[str]) -> None:
 
     display_cols = ["config_id", "chunk_size", "retriever"] + metric_cols
     print(
-        success_df[display_cols]
-        .to_string(index=False, float_format=lambda x: f"{x:.4f}")
+        success_df[display_cols].to_string(
+            index=False, float_format=lambda x: f"{x:.4f}"
+        )
     )
 
     print("\n── Aggregate (successful configs) ──")
@@ -438,6 +475,7 @@ def _print_summary(df: pd.DataFrame, failed: list[str]) -> None:
 # Checkpoint helper  (optional — call before run_ablation for large grids)
 # ---------------------------------------------------------------------------
 
+
 def load_checkpoint(configs: list[AblationConfig]) -> list[AblationConfig]:
     """
     Skip configs that already have a successful result in ablation_results.csv.
@@ -451,15 +489,18 @@ def load_checkpoint(configs: list[AblationConfig]) -> list[AblationConfig]:
     if not CSV_PATH.exists():
         return configs
 
-    done_df  = pd.read_csv(CSV_PATH)
+    done_df = pd.read_csv(CSV_PATH)
     done_ids = set(done_df[done_df["status"] == "success"]["config_id"].tolist())
 
     remaining = [c for c in configs if c.config_id not in done_ids]
-    skipped   = len(configs) - len(remaining)
+    skipped = len(configs) - len(remaining)
 
     if skipped:
-        log.info("Checkpoint: skipping %d already-completed configs: %s",
-                 skipped, sorted(done_ids))
+        log.info(
+            "Checkpoint: skipping %d already-completed configs: %s",
+            skipped,
+            sorted(done_ids),
+        )
 
     return remaining
 
@@ -468,28 +509,37 @@ def load_checkpoint(configs: list[AblationConfig]) -> list[AblationConfig]:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="RAGOps ablation runner — 9 configs × 50 questions"
     )
     parser.add_argument(
-        "--qa-file", type=Path, required=False,
+        "--qa-file",
+        type=Path,
+        required=False,
         help="JSON file with 50 qa_pairs (question/answer/contexts/ground_truth)",
     )
     parser.add_argument(
-        "--workers", type=int, default=DEFAULT_WORKERS,
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
         help=f"Parallel workers (default: {DEFAULT_WORKERS})",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Print grid without running evaluations",
     )
     parser.add_argument(
-        "--resume", action="store_true",
+        "--resume",
+        action="store_true",
         help="Skip configs already completed in ablation_results.csv",
     )
     parser.add_argument(
-        "--output-dir", type=Path, default=OUTPUT_DIR,
+        "--output-dir",
+        type=Path,
+        default=OUTPUT_DIR,
         help="Directory for CSV and JSON outputs",
     )
     return parser.parse_args()
@@ -500,9 +550,9 @@ if __name__ == "__main__":
 
     # Override output dir if specified
     if args.output_dir != OUTPUT_DIR:
-        OUTPUT_DIR  = args.output_dir
-        CSV_PATH    = OUTPUT_DIR / "ablation_results.csv"
-        JSON_PATH   = OUTPUT_DIR / "ablation_results.json"
+        OUTPUT_DIR = args.output_dir
+        CSV_PATH = OUTPUT_DIR / "ablation_results.csv"
+        JSON_PATH = OUTPUT_DIR / "ablation_results.json"
 
     # Load qa_pairs
     if args.dry_run:
@@ -512,7 +562,8 @@ if __name__ == "__main__":
         log.info("Loaded %d QA pairs from %s", len(qa_pairs), args.qa_file)
     else:
         # Fall back to CI stubs for quick local testing (NOT for paper results)
-        from ragops_eval import _ci_stub_pairs
+        from evaluation.ragas_runner import _ci_stub_pairs
+
         log.warning(
             "No --qa-file supplied — using 5 CI stub pairs. "
             "NOT valid for paper results."

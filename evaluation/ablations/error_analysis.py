@@ -37,12 +37,12 @@ logging.basicConfig(
 )
 log = logging.getLogger("ragops.error_analysis")
 
-OUTPUT_DIR  = Path(os.getenv("ABLATION_OUTPUT_DIR", "ablation_outputs"))
+OUTPUT_DIR = Path(os.getenv("ABLATION_OUTPUT_DIR", "ablation_outputs"))
 RESULTS_CSV = OUTPUT_DIR / "ablation_results.csv"
-PER_Q_DIR   = OUTPUT_DIR / "per_question"
-QA_FILE     = Path(os.getenv("QA_FILE", "qa_pairs.json"))
-OUT_MD      = OUTPUT_DIR / "error_analysis.md"
-OUT_JSON    = OUTPUT_DIR / "error_analysis.json"
+PER_Q_DIR = OUTPUT_DIR / "per_question"
+QA_FILE = Path(os.getenv("QA_FILE", "evaluation/benchmarks/qa_pairs.json"))
+OUT_MD = OUTPUT_DIR / "error_analysis.md"
+OUT_JSON = OUTPUT_DIR / "error_analysis.json"
 
 
 # ---------------------------------------------------------------------------
@@ -53,16 +53,16 @@ def categorise_error(row: pd.Series) -> str:
     Assign error category based on metric pattern.
     Priority order: hallucination > retrieval_failure > question_ambiguity > knowledge_gap
     """
-    faith   = row.get("faithfulness",      1.0)
-    recall  = row.get("context_recall",    1.0)
-    relev   = row.get("answer_relevance",  1.0)
-    prec    = row.get("context_precision", 1.0)
+    faith = row.get("faithfulness", 1.0)
+    recall = row.get("context_recall", 1.0)
+    relev = row.get("answer_relevance", 1.0)
+    prec = row.get("context_precision", 1.0)
 
     # Handle NaN
-    faith  = 0.0 if pd.isna(faith)  else faith
+    faith = 0.0 if pd.isna(faith) else faith
     recall = 0.0 if pd.isna(recall) else recall
-    relev  = 0.0 if pd.isna(relev)  else relev
-    prec   = 0.0 if pd.isna(prec)   else prec
+    relev = 0.0 if pd.isna(relev) else relev
+    prec = 0.0 if pd.isna(prec) else prec
 
     if faith < 0.5:
         return "hallucination"
@@ -87,8 +87,7 @@ def run_error_analysis(
     # ── Load ablation results ──────────────────────────────────────────────
     if not results_csv.exists():
         raise FileNotFoundError(
-            f"Ablation results not found: {results_csv}\n"
-            "Run ragops_ablation.py first."
+            f"Ablation results not found: {results_csv}\nRun ragops_ablation.py first."
         )
 
     df = pd.read_csv(results_csv)
@@ -98,9 +97,11 @@ def run_error_analysis(
         raise ValueError("No successful configs in results CSV.")
 
     # Best config by faithfulness
-    best_row    = success_df.loc[success_df["faithfulness"].idxmax()]
+    best_row = success_df.loc[success_df["faithfulness"].idxmax()]
     best_config = best_row["config_id"]
-    log.info("Best config: %s (faithfulness=%.4f)", best_config, best_row["faithfulness"])
+    log.info(
+        "Best config: %s (faithfulness=%.4f)", best_config, best_row["faithfulness"]
+    )
 
     # ── Load per-question scores ───────────────────────────────────────────
     pq_path = PER_Q_DIR / f"{best_config}_per_question.csv"
@@ -127,7 +128,12 @@ def run_error_analysis(
         log.info("Loaded %d Q&A pairs", len(qa_pairs))
 
     # ── Compute composite score (lower = worse) ────────────────────────────
-    metric_cols = ["faithfulness", "context_recall", "answer_relevance", "context_precision"]
+    metric_cols = [
+        "faithfulness",
+        "context_recall",
+        "answer_relevance",
+        "context_precision",
+    ]
 
     if pq_df is not None:
         available = [m for m in metric_cols if m in pq_df.columns]
@@ -162,9 +168,15 @@ def run_error_analysis(
         for _, row in worst.iterrows():
             q_idx = int(row.get("question_idx", row.name))
             if q_idx < len(qa_pairs):
-                worst.loc[row.name, "question"]   = qa_pairs[q_idx].get("question", f"Q{q_idx+1}")
-                worst.loc[row.name, "category"]   = qa_pairs[q_idx].get("category", "unknown")
-                worst.loc[row.name, "difficulty"] = qa_pairs[q_idx].get("difficulty", "unknown")
+                worst.loc[row.name, "question"] = qa_pairs[q_idx].get(
+                    "question", f"Q{q_idx + 1}"
+                )
+                worst.loc[row.name, "category"] = qa_pairs[q_idx].get(
+                    "category", "unknown"
+                )
+                worst.loc[row.name, "difficulty"] = qa_pairs[q_idx].get(
+                    "difficulty", "unknown"
+                )
 
     # ── Category summary ───────────────────────────────────────────────────
     cat_counts = worst["error_category"].value_counts().to_dict()
@@ -172,10 +184,10 @@ def run_error_analysis(
 
     # ── Build output ───────────────────────────────────────────────────────
     results = {
-        "best_config":      best_config,
-        "n_worst":          len(worst),
+        "best_config": best_config,
+        "n_worst": len(worst),
         "error_categories": cat_counts,
-        "worst_questions":  _format_worst(worst, metric_cols),
+        "worst_questions": _format_worst(worst, metric_cols),
         "category_analysis": _category_analysis(worst, qa_pairs),
     }
 
@@ -193,6 +205,7 @@ def run_error_analysis(
 def _simulate_worst(qa_pairs: list, metric_cols: list) -> pd.DataFrame:
     """Generate simulated worst-question scores when real data unavailable."""
     import random
+
     random.seed(42)
     np.random.seed(42)
 
@@ -211,7 +224,7 @@ def _format_worst(df: pd.DataFrame, metric_cols: list) -> list[dict]:
     out = []
     for i, (_, row) in enumerate(df.iterrows()):
         entry = {
-            "rank":           i + 1,
+            "rank": i + 1,
             "error_category": row.get("error_category", "unknown"),
             "composite_score": round(float(row.get("composite", 0)), 4),
         }
@@ -232,44 +245,55 @@ def _category_analysis(df: pd.DataFrame, qa_pairs: list) -> dict:
     """Breakdown of error types by medical category."""
     if "category" not in df.columns:
         return {}
-    return df.groupby(["category", "error_category"]).size().reset_index(
-        name="count"
-    ).to_dict(orient="records")
+    return (
+        df.groupby(["category", "error_category"])
+        .size()
+        .reset_index(name="count")
+        .to_dict(orient="records")
+    )
 
 
 def _save_markdown(results: dict, best_config: str, best_row: pd.Series) -> None:
     lines = []
     lines.append("# Error Analysis — RAGOps Ablation Study")
-    lines.append(f"\n**Best config:** `{best_config}` "
-                 f"(chunk={int(best_row.get('chunk_size', 0))}, "
-                 f"retriever={best_row.get('retriever', 'N/A')})")
-    lines.append(f"\n**Worst 10 questions analysed from {results['n_worst']} total.**\n")
+    lines.append(
+        f"\n**Best config:** `{best_config}` "
+        f"(chunk={int(best_row.get('chunk_size', 0))}, "
+        f"retriever={best_row.get('retriever', 'N/A')})"
+    )
+    lines.append(
+        f"\n**Worst 10 questions analysed from {results['n_worst']} total.**\n"
+    )
 
     lines.append("## Error Category Summary\n")
     lines.append("| Category | Count | Description |")
     lines.append("|---|---|---|")
     descriptions = {
-        "hallucination":     "Model generated facts not supported by retrieved context",
+        "hallucination": "Model generated facts not supported by retrieved context",
         "retrieval_failure": "Retriever failed to surface relevant documents (low context_recall)",
-        "question_ambiguity":"Question too vague or ambiguous for precise retrieval",
-        "knowledge_gap":     "Topic not well covered in PubMed corpus",
+        "question_ambiguity": "Question too vague or ambiguous for precise retrieval",
+        "knowledge_gap": "Topic not well covered in PubMed corpus",
     }
     for cat, count in sorted(results["error_categories"].items(), key=lambda x: -x[1]):
         lines.append(f"| {cat} | {count} | {descriptions.get(cat, '')} |")
 
     lines.append("\n## Worst 10 Questions\n")
-    lines.append("| Rank | Category | Error Type | Faithfulness | Recall | Relevance | Precision |")
+    lines.append(
+        "| Rank | Category | Error Type | Faithfulness | Recall | Relevance | Precision |"
+    )
     lines.append("|---|---|---|---|---|---|---|")
     for q in results["worst_questions"]:
         lines.append(
-            f"| {q['rank']} | {q.get('qa_category','?')} | {q['error_category']} | "
-            f"{q.get('faithfulness','?')} | {q.get('context_recall','?')} | "
-            f"{q.get('answer_relevance','?')} | {q.get('context_precision','?')} |"
+            f"| {q['rank']} | {q.get('qa_category', '?')} | {q['error_category']} | "
+            f"{q.get('faithfulness', '?')} | {q.get('context_recall', '?')} | "
+            f"{q.get('answer_relevance', '?')} | {q.get('context_precision', '?')} |"
         )
 
     lines.append("\n## Detailed Question Analysis\n")
     for q in results["worst_questions"]:
-        lines.append(f"### Q{q['rank']} — {q['error_category'].replace('_', ' ').title()}")
+        lines.append(
+            f"### Q{q['rank']} — {q['error_category'].replace('_', ' ').title()}"
+        )
         if "question" in q:
             lines.append(f"**Question:** {q['question']}")
         lines.append(f"- Faithfulness:      {q.get('faithfulness', 'N/A')}")
@@ -298,7 +322,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="RAGOps error analysis")
     parser.add_argument("--results-csv", type=Path, default=RESULTS_CSV)
-    parser.add_argument("--qa-file",     type=Path, default=QA_FILE)
+    parser.add_argument("--qa-file", type=Path, default=QA_FILE)
     args = parser.parse_args()
 
     try:

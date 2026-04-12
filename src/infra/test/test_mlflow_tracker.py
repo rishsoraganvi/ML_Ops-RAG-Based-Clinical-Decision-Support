@@ -12,11 +12,9 @@ Run::
 
 import pytest
 import mlflow
-import tempfile
-import os
 import numpy as np
 
-from src.infra.mlflow_tracker import (
+from mlops.mlflow_tracker import (
     RAGOpsTracker,
     RAGASMetrics,
     MetricNames,
@@ -31,6 +29,7 @@ from src.infra.baseline_store import InMemoryBaselineStore
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def isolated_mlflow(tmp_path):
@@ -70,8 +69,8 @@ def good_ragas_metrics():
 def failing_ragas_metrics():
     """RAGAS metrics that fail faithfulness and context_recall gates."""
     return RAGASMetrics(
-        faithfulness=0.70,   # below 0.80 threshold
-        context_recall=0.60, # below 0.75 threshold
+        faithfulness=0.70,  # below 0.80 threshold
+        context_recall=0.60,  # below 0.75 threshold
         answer_relevancy=0.80,
     )
 
@@ -80,8 +79,8 @@ def failing_ragas_metrics():
 # Experiment creation
 # ---------------------------------------------------------------------------
 
-class TestExperimentSetup:
 
+class TestExperimentSetup:
     def test_creates_experiment_on_first_init(self, tracker):
         """Tracker should create the experiment if it does not exist."""
         exp = mlflow.get_experiment_by_name("test_ragops")
@@ -89,8 +88,12 @@ class TestExperimentSetup:
 
     def test_reuses_existing_experiment(self, isolated_mlflow):
         """Second tracker init with same name should not raise."""
-        t1 = RAGOpsTracker(tracking_uri=mlflow.get_tracking_uri(), experiment_name="shared_exp")
-        t2 = RAGOpsTracker(tracking_uri=mlflow.get_tracking_uri(), experiment_name="shared_exp")
+        t1 = RAGOpsTracker(
+            tracking_uri=mlflow.get_tracking_uri(), experiment_name="shared_exp"
+        )
+        t2 = RAGOpsTracker(
+            tracking_uri=mlflow.get_tracking_uri(), experiment_name="shared_exp"
+        )
         assert t1._experiment_id == t2._experiment_id
 
 
@@ -98,8 +101,8 @@ class TestExperimentSetup:
 # Run lifecycle
 # ---------------------------------------------------------------------------
 
-class TestRunLifecycle:
 
+class TestRunLifecycle:
     def test_run_starts_and_finishes(self, tracker):
         """Context manager should open and close a run cleanly."""
         with tracker.start_run(triggered_by=RunTrigger.CI):
@@ -145,8 +148,8 @@ class TestRunLifecycle:
 # RAGAS metric logging
 # ---------------------------------------------------------------------------
 
-class TestRAGASLogging:
 
+class TestRAGASLogging:
     def test_core_metrics_logged(self, tracker, good_ragas_metrics):
         """Core RAGAS fields should appear in the run's metrics dict."""
         with tracker.start_run():
@@ -180,8 +183,8 @@ class TestRAGASLogging:
 # PSI drift logging  (PAPER CONTRIBUTION)
 # ---------------------------------------------------------------------------
 
-class TestPSILogging:
 
+class TestPSILogging:
     def test_stable_psi_tag(self, tracker):
         """PSI below warning threshold should get 'stable' tag."""
         with tracker.start_run():
@@ -223,8 +226,8 @@ class TestPSILogging:
 # XAI consistency logging  (XAI CONTRIBUTION)
 # ---------------------------------------------------------------------------
 
-class TestXAILogging:
 
+class TestXAILogging:
     def test_stable_xai_tag(self, tracker):
         """Score >= 0.75 should get 'stable' tag."""
         with tracker.start_run():
@@ -254,11 +257,11 @@ class TestXAILogging:
 
 
 # ---------------------------------------------------------------------------
-# Quality gate  
+# Quality gate
 # ---------------------------------------------------------------------------
 
-class TestQualityGate:
 
+class TestQualityGate:
     def test_gate_passes_with_good_metrics(self, tracker, good_ragas_metrics):
         """All metrics above threshold → gate passes, metric logged as 1.0."""
         with tracker.start_run():
@@ -276,7 +279,6 @@ class TestQualityGate:
         with tracker.start_run():
             tracker.log_ragas_metrics(failing_ragas_metrics)
             result = tracker.log_quality_gate_results()
-            run_id = tracker.active_run_id
 
         assert result.passed is False
         assert MetricNames.FAITHFULNESS in result.failures
@@ -294,8 +296,8 @@ class TestQualityGate:
 # Baseline store
 # ---------------------------------------------------------------------------
 
-class TestBaselineStore:
 
+class TestBaselineStore:
     def test_psi_baseline_roundtrip(self):
         """Save and load PSI baseline should return identical array."""
         store = InMemoryBaselineStore()
@@ -322,6 +324,6 @@ class TestBaselineStore:
         store = InMemoryBaselineStore()
         embeddings = np.ones((10, 384), dtype=np.float32)
         store.save_psi_baseline(embeddings)
-        embeddings[:] = 0.0   # mutate original
+        embeddings[:] = 0.0  # mutate original
         loaded = store.load_psi_baseline()
         assert loaded[0, 0] == pytest.approx(1.0)

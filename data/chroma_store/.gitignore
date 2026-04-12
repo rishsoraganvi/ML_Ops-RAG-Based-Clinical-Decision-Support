@@ -1,1 +1,4 @@
+# ── ChromaDB local store ignores ──────────────────────────────────────────────
 *sqlite3
+*.bin
+*.pkl

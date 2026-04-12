@@ -1,13 +1,10 @@
 # data/refresh.py
-import sys
-import os
 import argparse
 from datetime import datetime, timedelta
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-from fetcher import search_pmids, fetch_records_xml
-from parser import parse_xml_to_records, write_jsonl
-from chroma_interface import incremental_upsert
+from src.fetcher import search_pmids, fetch_records_xml
+from src.parser import parse_xml_to_records, write_jsonl
+from src.chroma_interface import incremental_upsert
 
 JSONL_PATH = "data/processed/pubmed_processed.jsonl"
 

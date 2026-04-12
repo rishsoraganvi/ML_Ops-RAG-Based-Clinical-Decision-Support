@@ -14,7 +14,6 @@ import logging
 import time
 from typing import Optional
 
-import mlflow
 from langchain_community.chat_models import ChatOllama
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -31,7 +30,6 @@ logger = logging.getLogger(__name__)
 OLLAMA_BASE_URL  = "http://localhost:11434"
 OLLAMA_MODEL     = "llama3"               # ollama pull llama3
 OLLAMA_TEMP      = 0.0                    # deterministic for ablations
-MLFLOW_EXP_NAME  = "ragops_ablation"
 
 CLINICAL_PROMPT = PromptTemplate(
     input_variables=["context", "question"],
@@ -253,21 +251,21 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def _log_to_mlflow(question: str, result: dict, cfg: dict) -> None:
-    """Log one RAG query as an MLflow run."""
-    mlflow.set_experiment(MLFLOW_EXP_NAME)
-    with mlflow.start_run(run_name=f"{cfg['retriever_type']}_{cfg['chunk_size']}"):
-        mlflow.log_params(cfg)
-        mlflow.log_metrics(
-            {
-                "retrieval_latency_ms": result["retrieval_latency_ms"],
-                "llm_latency_ms":       result["llm_latency_ms"],
-                "total_latency_ms":     result["total_latency_ms"],
-                "top_retrieval_score":  result["retrieval_scores"][0]
-                                        if result["retrieval_scores"] else 0.0,
-            }
-        )
-        mlflow.log_text(question,          "question.txt")
-        mlflow.log_text(result["answer"],  "answer.txt")
+    """Log one RAG query as an MLflow run via RAGOpsTracker."""
+    from mlops.mlflow_tracker import RAGOpsTracker, RunTrigger
+
+    tracker = RAGOpsTracker()
+    with tracker.start_run(
+        triggered_by=RunTrigger.MANUAL,
+        run_name=f"{cfg['retriever_type']}_{cfg['chunk_size']}",
+    ):
+        tracker.log_params(cfg)
+        tracker.log_retrieval_latency(result["retrieval_latency_ms"])
+        # Log text artifacts via scoped mlflow import
+        import mlflow
+
+        mlflow.log_text(question, "question.txt")
+        mlflow.log_text(result["answer"], "answer.txt")
 
 
 # ---------------------------------------------------------------------------

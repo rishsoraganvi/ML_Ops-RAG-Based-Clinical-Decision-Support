@@ -1,5 +1,5 @@
 """
-ragops_eval.py
+ragas_runner.py
 ==============
 RAGAS evaluation pipeline for RAGOps — clinical decision support system.
 
@@ -21,6 +21,7 @@ from __future__ import annotations
 # Prevents OpenBLAS from allocating huge contiguous memory blocks
 # ---------------------------------------------------------------------------
 import os
+
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -33,7 +34,6 @@ import logging
 import random
 import time
 from pathlib import Path
-from typing import Any
 
 import mlflow
 import numpy as np
@@ -42,18 +42,22 @@ from datasets import Dataset
 from langchain_ollama import OllamaLLM as Ollama
 from langchain_ollama import OllamaEmbeddings
 from ragas import evaluate
+
 # RAGAS metrics — version-safe import
 # ragas>=0.2 uses class instances; older versions use module-level objects
 import ragas.metrics as _ragas_metrics_module
 
+
 def _get_metric(name: str):
     """Get metric by name, instantiating if it is a class."""
     import inspect
+
     obj = getattr(_ragas_metrics_module, name, None)
     if obj is None:
         # Try collections submodule (ragas>=0.2)
         try:
             import ragas.metrics.collections as _col
+
             obj = getattr(_col, name, None)
         except ImportError:
             pass
@@ -64,10 +68,11 @@ def _get_metric(name: str):
         return obj()
     return obj
 
-faithfulness        = _get_metric("faithfulness")
-context_recall      = _get_metric("context_recall")
-answer_relevancy    = _get_metric("answer_relevancy")
-context_precision   = _get_metric("context_precision")
+
+faithfulness = _get_metric("faithfulness")
+context_recall = _get_metric("context_recall")
+answer_relevancy = _get_metric("answer_relevancy")
+context_precision = _get_metric("context_precision")
 try:
     from ragas.llms import LangchainLLMWrapper
     from ragas.embeddings import LangchainEmbeddingsWrapper
@@ -109,8 +114,8 @@ OLLAMA_EMBED_MODEL: str = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 MLFLOW_EXPERIMENT: str = os.getenv("MLFLOW_EXPERIMENT", "ragops-ragas-eval")
 MLFLOW_TRACKING_URI: str = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlruns.db")
 
-CI_SAMPLE_SIZE: int = 5          # questions used in run_ci_eval
-CI_TIMEOUT_SECS: int = 90        # hard SLA for run_ci_eval
+CI_SAMPLE_SIZE: int = 5  # questions used in run_ci_eval
+CI_TIMEOUT_SECS: int = 90  # hard SLA for run_ci_eval
 
 # RAGAS metric objects — instantiated via _get_metric() above
 _METRICS = [faithfulness, context_recall, answer_relevancy, context_precision]
@@ -127,14 +132,15 @@ METRIC_KEYS = [
 # LLM / Embedding wrappers
 # ---------------------------------------------------------------------------
 
+
 def _build_ragas_llm() -> LangchainLLMWrapper:
     """Wrap Ollama LLaMA-3-8B as a RAGAS-compatible LLM judge."""
     llm = Ollama(
         model=OLLAMA_MODEL,
         base_url=OLLAMA_BASE_URL,
-        temperature=0,          # deterministic judge
+        temperature=0,  # deterministic judge
         num_predict=512,
-        timeout=300,            # 5 min timeout — needed for 8B model on CPU
+        timeout=300,  # 5 min timeout — needed for 8B model on CPU
     )
     return LangchainLLMWrapper(llm)
 
@@ -151,6 +157,7 @@ def _build_ragas_embeddings() -> LangchainEmbeddingsWrapper:
 # ---------------------------------------------------------------------------
 # Dataset builder
 # ---------------------------------------------------------------------------
+
 
 def _build_ragas_dataset(qa_pairs: list[dict]) -> Dataset:
     """
@@ -179,6 +186,7 @@ def _build_ragas_dataset(qa_pairs: list[dict]) -> Dataset:
 # Config fingerprint (for MLflow run naming + reproducibility audit)
 # ---------------------------------------------------------------------------
 
+
 def _config_fingerprint(config: dict | None) -> str:
     """Stable short hash of the config dict for run naming."""
     blob = json.dumps(config or {}, sort_keys=True).encode()
@@ -188,6 +196,7 @@ def _config_fingerprint(config: dict | None) -> str:
 # ---------------------------------------------------------------------------
 # Core evaluation logic
 # ---------------------------------------------------------------------------
+
 
 def _run_ragas(
     dataset: Dataset,
@@ -206,7 +215,7 @@ def _run_ragas(
     # CPU-safe concurrency — run 1 job at a time, long timeout
     # llama3.2:1b on CPU takes ~20-40s per call
     os.environ["RAGAS_MAX_WORKERS"] = "1"
-    os.environ["RAGAS_TIMEOUT"]     = "600"   # 10 min per job
+    os.environ["RAGAS_TIMEOUT"] = "600"  # 10 min per job
 
     ragas_llm = _build_ragas_llm()
     ragas_emb = _build_ragas_embeddings()
@@ -221,23 +230,25 @@ def _run_ragas(
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
-    cfg_hash  = _config_fingerprint(config)
+    cfg_hash = _config_fingerprint(config)
     config_id = (config or {}).get("config_id", "")
-    run_name  = f"{run_tag}_{cfg_hash}"
+    run_name = f"{run_tag}_{cfg_hash}"
 
     log.info("Starting RAGAS evaluation | run=%s | n=%d", run_name, len(dataset))
     t0 = time.perf_counter()
 
     with mlflow.start_run(run_name=run_name):
         # ── Tags ──────────────────────────────────────────────────────────
-        mlflow.set_tags({
-            "run_tag":     run_tag,
-            "config_hash": cfg_hash,
-            "config_id":   config_id,
-            "ollama_model": OLLAMA_MODEL,
-            "n_questions": len(dataset),
-            **(extra_tags or {}),
-        })
+        mlflow.set_tags(
+            {
+                "run_tag": run_tag,
+                "config_hash": cfg_hash,
+                "config_id": config_id,
+                "ollama_model": OLLAMA_MODEL,
+                "n_questions": len(dataset),
+                **(extra_tags or {}),
+            }
+        )
 
         # Log full config as a JSON artifact for reproducibility
         if config:
@@ -245,10 +256,11 @@ def _run_ragas(
 
         # ── RAGAS evaluate ─────────────────────────────────────────────
         from ragas.run_config import RunConfig
+
         run_cfg = RunConfig(
-            timeout=600,        # 10 min per LLM call — needed for CPU inference
-            max_retries=3,      # retry on transient 500s
-            max_workers=1,      # sequential — prevents RAM overload on CPU
+            timeout=600,  # 10 min per LLM call — needed for CPU inference
+            max_retries=3,  # retry on transient 500s
+            max_workers=1,  # sequential — prevents RAM overload on CPU
         )
         result = evaluate(
             dataset=dataset,
@@ -263,9 +275,9 @@ def _run_ragas(
         result_df: pd.DataFrame = result.to_pandas()
 
         scores: dict[str, float] = {
-            "faithfulness":      float(result_df["faithfulness"].mean()),
-            "context_recall":    float(result_df["context_recall"].mean()),
-            "answer_relevance":  float(result_df["answer_relevancy"].mean()),
+            "faithfulness": float(result_df["faithfulness"].mean()),
+            "context_recall": float(result_df["context_recall"].mean()),
+            "answer_relevance": float(result_df["answer_relevancy"].mean()),
             "context_precision": float(result_df["context_precision"].mean()),
         }
 
@@ -280,6 +292,7 @@ def _run_ragas(
         ].rename(columns={"answer_relevancy": "answer_relevance"})
 
         import tempfile
+
         if per_question_path is not None:
             # Caller specified a destination — write directly (no temp file)
             Path(per_question_path).parent.mkdir(parents=True, exist_ok=True)
@@ -309,6 +322,7 @@ def _run_ragas(
 # ---------------------------------------------------------------------------
 # Public interface
 # ---------------------------------------------------------------------------
+
 
 def run_eval(
     qa_pairs: list[dict],
@@ -388,9 +402,7 @@ def run_ci_eval(
 
     elapsed = time.perf_counter() - t0
     if elapsed > CI_TIMEOUT_SECS:
-        log.warning(
-            "run_ci_eval exceeded SLA: %.1fs > %ds", elapsed, CI_TIMEOUT_SECS
-        )
+        log.warning("run_ci_eval exceeded SLA: %.1fs > %ds", elapsed, CI_TIMEOUT_SECS)
 
     return scores
 
@@ -398,6 +410,7 @@ def run_ci_eval(
 # ---------------------------------------------------------------------------
 # CI stub — minimal synthetic pairs so CI can run without real data
 # ---------------------------------------------------------------------------
+
 
 def _ci_stub_pairs() -> list[dict]:
     """

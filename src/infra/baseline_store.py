@@ -33,6 +33,7 @@ logger = logging.getLogger("ragops.infra.baseline_store")
 # Abstract interface
 # ---------------------------------------------------------------------------
 
+
 class BaselineStore(ABC):
     """
     Abstract persistence contract for baseline distributions.
@@ -109,6 +110,7 @@ class BaselineStore(ABC):
 # In-memory stub (active implementation)
 # ---------------------------------------------------------------------------
 
+
 class InMemoryBaselineStore(BaselineStore):
     """
     Non-persistent in-memory baseline store.
@@ -169,10 +171,15 @@ class InMemoryBaselineStore(BaselineStore):
 # Factory — single swap point for production store
 # ---------------------------------------------------------------------------
 
+
+_store: BaselineStore | None = None
+
+
 def get_baseline_store() -> BaselineStore:
     """
-    Return the active baseline store implementation.
+    Return the active baseline store implementation (singleton).
 
+    The store is created once per process and reused across all calls.
     To switch backends, replace ``InMemoryBaselineStore()`` here with
     the desired concrete class. All callers automatically use the new store.
 
@@ -181,4 +188,7 @@ def get_baseline_store() -> BaselineStore:
     BaselineStore
         Active store instance.
     """
-    return InMemoryBaselineStore()
+    global _store
+    if _store is None:
+        _store = InMemoryBaselineStore()
+    return _store

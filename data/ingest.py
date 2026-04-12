@@ -1,11 +1,8 @@
 # data/ingest.py
-import sys
-import os
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-from chroma_interface import get_embeddings as _get_embeddings
-from chroma_interface import incremental_upsert as _incremental_upsert
+from src.chroma_interface import get_embeddings as _get_embeddings
+from src.chroma_interface import incremental_upsert as _incremental_upsert
 
 
 def get_embeddings() -> np.ndarray:

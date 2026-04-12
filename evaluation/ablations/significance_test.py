@@ -42,14 +42,19 @@ log = logging.getLogger("ragops.significance")
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-OUTPUT_DIR   = Path(os.getenv("ABLATION_OUTPUT_DIR", "ablation_outputs"))
-RESULTS_CSV  = OUTPUT_DIR / "ablation_results.csv"
-PER_Q_DIR    = OUTPUT_DIR / "per_question"
-REPORT_TXT   = OUTPUT_DIR / "significance_report.txt"
-REPORT_JSON  = OUTPUT_DIR / "significance_report.json"
+OUTPUT_DIR = Path(os.getenv("ABLATION_OUTPUT_DIR", "ablation_outputs"))
+RESULTS_CSV = OUTPUT_DIR / "ablation_results.csv"
+PER_Q_DIR = OUTPUT_DIR / "per_question"
+REPORT_TXT = OUTPUT_DIR / "significance_report.txt"
+REPORT_JSON = OUTPUT_DIR / "significance_report.json"
 
-METRIC_KEYS  = ["faithfulness", "context_recall", "answer_relevance", "context_precision"]
-ALPHA        = 0.05   # significance threshold
+METRIC_KEYS = [
+    "faithfulness",
+    "context_recall",
+    "answer_relevance",
+    "context_precision",
+]
+ALPHA = 0.05  # significance threshold
 
 
 # ---------------------------------------------------------------------------
@@ -66,9 +71,12 @@ def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
 
 def interpret_d(d: float) -> str:
     d = abs(d)
-    if d < 0.2:  return "negligible"
-    if d < 0.5:  return "small"
-    if d < 0.8:  return "medium"
+    if d < 0.2:
+        return "negligible"
+    if d < 0.5:
+        return "small"
+    if d < 0.8:
+        return "medium"
     return "large"
 
 
@@ -118,23 +126,31 @@ def run_significance_tests(
     log.info("Loaded %d successful configs from %s", len(success_df), results_csv)
 
     # ── Rank configs by faithfulness (primary metric) ──────────────────────
-    ranked = success_df.sort_values("faithfulness", ascending=False).reset_index(drop=True)
+    ranked = success_df.sort_values("faithfulness", ascending=False).reset_index(
+        drop=True
+    )
 
-    best       = ranked.iloc[0]
-    second     = ranked.iloc[1] if len(ranked) > 1 else None
+    best = ranked.iloc[0]
+    second = ranked.iloc[1] if len(ranked) > 1 else None
 
-    log.info("Best config:   %s (faithfulness=%.4f)", best["config_id"], best["faithfulness"])
+    log.info(
+        "Best config:   %s (faithfulness=%.4f)", best["config_id"], best["faithfulness"]
+    )
     if second is not None:
-        log.info("Second config: %s (faithfulness=%.4f)", second["config_id"], second["faithfulness"])
+        log.info(
+            "Second config: %s (faithfulness=%.4f)",
+            second["config_id"],
+            second["faithfulness"],
+        )
 
     # ── Results container ──────────────────────────────────────────────────
     results = {
-        "best_config":   best["config_id"],
+        "best_config": best["config_id"],
         "second_config": second["config_id"] if second is not None else None,
-        "n_configs":     len(success_df),
-        "aggregate":     {},
-        "pairwise":      {},
-        "bonferroni":    {},
+        "n_configs": len(success_df),
+        "aggregate": {},
+        "pairwise": {},
+        "bonferroni": {},
     }
 
     # ── Aggregate stats per config ─────────────────────────────────────────
@@ -142,12 +158,13 @@ def run_significance_tests(
         cfg_id = row["config_id"]
         results["aggregate"][cfg_id] = {
             m: round(float(row[m]), 4)
-            for m in METRIC_KEYS if m in row and not pd.isna(row[m])
+            for m in METRIC_KEYS
+            if m in row and not pd.isna(row[m])
         }
 
     # ── Paired t-test: best vs second-best ────────────────────────────────
     if second is not None:
-        best_pq   = _load_per_question(best["config_id"])
+        best_pq = _load_per_question(best["config_id"])
         second_pq = _load_per_question(second["config_id"])
 
         if best_pq is not None and second_pq is not None:
@@ -176,25 +193,29 @@ def run_significance_tests(
                     continue
 
                 t_stat, p_val = stats.ttest_rel(a, b)
-                d             = cohens_d(a, b)
-                significant   = bool(p_val < alpha_corrected)
+                d = cohens_d(a, b)
+                significant = bool(p_val < alpha_corrected)
 
                 pairwise_results[metric] = {
-                    "t_statistic":    round(float(t_stat), 4),
-                    "p_value":        round(float(p_val), 6),
-                    "cohens_d":       round(d, 4),
-                    "effect_size":    interpret_d(d),
-                    "significant":    significant,
-                    "alpha_bonf":     round(alpha_corrected, 4),
-                    "n_pairs":        int(len(a)),
-                    "best_mean":      round(float(np.mean(a)), 4),
-                    "second_mean":    round(float(np.mean(b)), 4),
-                    "mean_diff":      round(float(np.mean(a - b)), 4),
+                    "t_statistic": round(float(t_stat), 4),
+                    "p_value": round(float(p_val), 6),
+                    "cohens_d": round(d, 4),
+                    "effect_size": interpret_d(d),
+                    "significant": significant,
+                    "alpha_bonf": round(alpha_corrected, 4),
+                    "n_pairs": int(len(a)),
+                    "best_mean": round(float(np.mean(a)), 4),
+                    "second_mean": round(float(np.mean(b)), 4),
+                    "mean_diff": round(float(np.mean(a - b)), 4),
                 }
 
                 log.info(
                     "%s: t=%.3f, p=%.4f, d=%.3f (%s) %s",
-                    metric, t_stat, p_val, d, interpret_d(d),
+                    metric,
+                    t_stat,
+                    p_val,
+                    d,
+                    interpret_d(d),
                     "✓ SIGNIFICANT" if significant else "✗ not significant",
                 )
 
@@ -230,10 +251,10 @@ def _aggregate_fallback(best: pd.Series, second: pd.Series) -> dict:
             continue
         diff = float(best[metric]) - float(second[metric])
         out[metric] = {
-            "best_mean":   round(float(best[metric]), 4),
+            "best_mean": round(float(best[metric]), 4),
             "second_mean": round(float(second[metric]), 4),
-            "mean_diff":   round(diff, 4),
-            "note":        "Aggregate comparison only — per-question CSV not available",
+            "mean_diff": round(diff, 4),
+            "note": "Aggregate comparison only — per-question CSV not available",
         }
     return out
 
@@ -245,14 +266,19 @@ def _build_ranking(df: pd.DataFrame) -> list[dict]:
     ranked = df.sort_values("faithfulness", ascending=False).reset_index(drop=True)
     out = []
     for i, row in ranked.iterrows():
-        out.append({
-            "rank":       int(i + 1),
-            "config_id":  row["config_id"],
-            "chunk_size": int(row["chunk_size"]),
-            "retriever":  row["retriever"],
-            **{m: round(float(row[m]), 4) for m in METRIC_KEYS
-               if m in row and not pd.isna(row[m])},
-        })
+        out.append(
+            {
+                "rank": int(i + 1),
+                "config_id": row["config_id"],
+                "chunk_size": int(row["chunk_size"]),
+                "retriever": row["retriever"],
+                **{
+                    m: round(float(row[m]), 4)
+                    for m in METRIC_KEYS
+                    if m in row and not pd.isna(row[m])
+                },
+            }
+        )
     return out
 
 
@@ -330,9 +356,13 @@ def _save_json_report(results: dict) -> None:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="RAGOps statistical significance tests")
+    parser = argparse.ArgumentParser(
+        description="RAGOps statistical significance tests"
+    )
     parser.add_argument(
-        "--results-csv", type=Path, default=RESULTS_CSV,
+        "--results-csv",
+        type=Path,
+        default=RESULTS_CSV,
         help="Path to ablation_results.csv",
     )
     args = parser.parse_args()

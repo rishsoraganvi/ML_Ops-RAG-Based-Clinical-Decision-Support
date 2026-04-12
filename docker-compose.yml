@@ -120,8 +120,8 @@ services:
   # ── 4. FastAPI (RAGOps orchestration layer) ────────────────────────────────
   fastapi:
     build:
-      context: ./docker/fastapi
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/fastapi/Dockerfile
       args:
         PYTHON_VERSION: "${PYTHON_VERSION:-3.11}"
     container_name: ragops_fastapi
@@ -150,6 +150,8 @@ services:
     volumes:
       # Hot-reload in dev: mount source so edits reflect without rebuild
       - ./src:/app/src:ro
+      - ./serving:/app/serving:ro
+      - ./mlops:/app/mlops:ro
     networks:
       - ragops_net
     depends_on:
