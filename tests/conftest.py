@@ -32,6 +32,27 @@ def mlflow_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     return uri
 
 
+@pytest.fixture
+def mock_mlflow_client(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Patch ``mlflow.MlflowClient`` so tests can drive compare_runs and
+    drift_detector.monitor_generation without a live MLflow server."""
+    client = MagicMock(name="mock_mlflow_client")
+    monkeypatch.setattr("mlflow.MlflowClient", lambda *a, **k: client)
+    monkeypatch.setattr("mlflow.set_tracking_uri", lambda *a, **k: None)
+    return client
+
+
+@pytest.fixture(autouse=True)
+def _reset_baseline_store() -> Iterator[None]:
+    """Clear the in-memory BaselineStore singleton before and after each test
+    so PSI/XAI baselines don't leak across tests."""
+    import src.infra.baseline_store as bs
+
+    bs._store = None
+    yield
+    bs._store = None
+
+
 # ---------------------------------------------------------------------------
 # ChromaDB — mocked client + collection
 # ---------------------------------------------------------------------------

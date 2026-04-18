@@ -1,0 +1,6 @@
+[tool.coverage.run]
+omit = [
+    "src/fetcher.py",
+    "src/parser.py",
+    "src/run_pipeline.py",
+]

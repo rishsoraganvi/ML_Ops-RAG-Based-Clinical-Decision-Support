@@ -229,8 +229,6 @@ def _saliency_spans(
     top_n: int,
 ) -> List[Dict[str, Any]]:
     """Compute gradient saliency of context tokens w.r.t. the sentence."""
-    import torch
-
     pair = tokenizer(
         sentence,
         context,
@@ -326,9 +324,7 @@ def attention_attribution(  # XAI CONTRIBUTION
 
     # Pad to fixed length.
     while len(results) < ATTENTION_FIXED_SENTENCES:
-        results.append(
-            {"sentence_idx": len(results), "sentence": "", "spans": []}
-        )
+        results.append({"sentence_idx": len(results), "sentence": "", "spans": []})
     return results
 
 
@@ -494,12 +490,8 @@ class HallucinationClassifier:  # XAI CONTRIBUTION
                 background = np.zeros((1, vec.size), dtype=np.float64)
                 explainer = shap.LinearExplainer(self._model, background)
                 sv = np.asarray(explainer.shap_values(vec.reshape(1, -1))).reshape(-1)
-                order = sorted(
-                    range(sv.size), key=lambda i: -abs(sv[i])
-                )[:2]
-                parts = [
-                    f"{_FEATURE_ORDER[i]} ({sv[i]:+.2f})" for i in order
-                ]
+                order = sorted(range(sv.size), key=lambda i: -abs(sv[i]))[:2]
+                parts = [f"{_FEATURE_ORDER[i]} ({sv[i]:+.2f})" for i in order]
                 return "SHAP-explained: " + ", ".join(parts)
             except Exception as exc:  # pragma: no cover
                 logger.info("LinearExplainer failed (%s); using rule-based reason", exc)
@@ -525,9 +517,7 @@ class HallucinationClassifier:  # XAI CONTRIBUTION
             )
         arr = np.asarray(features, dtype=np.float64).reshape(-1)
         if arr.size != len(_FEATURE_ORDER):
-            raise ValueError(
-                f"features vector must have length {len(_FEATURE_ORDER)}"
-            )
+            raise ValueError(f"features vector must have length {len(_FEATURE_ORDER)}")
         return arr
 
     @staticmethod
@@ -583,16 +573,18 @@ def explain(  # XAI CONTRIBUTION
 
     # Combine all retrieved contexts for attention attribution.
     context_joined = "\n\n".join(d.get("page_content", "") for d in source_docs)
-    token_attributions = attention_attribution(
-        question, context_joined, answer or ""
-    )
+    token_attributions = attention_attribution(question, context_joined, answer or "")
 
     term_scores = term_attribution(question, source_docs)
     explanation_vector = build_explanation_vector(shap_values, token_attributions)
 
     features = {
-        "mean_retrieval_score": float(np.mean(retrieval_scores)) if retrieval_scores else 0.0,
-        "min_retrieval_score": float(np.min(retrieval_scores)) if retrieval_scores else 0.0,
+        "mean_retrieval_score": float(np.mean(retrieval_scores))
+        if retrieval_scores
+        else 0.0,
+        "min_retrieval_score": float(np.min(retrieval_scores))
+        if retrieval_scores
+        else 0.0,
         "shap_entropy": _shap_entropy(shap_values),
         "num_source_docs": float(len(source_docs)),
         "answer_len_tokens": float(len((answer or "").split())),

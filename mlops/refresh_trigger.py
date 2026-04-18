@@ -14,8 +14,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from src.config.settings import settings
-
 logger = logging.getLogger("ragops.refresh_trigger")
 
 
@@ -73,6 +71,7 @@ def trigger_refresh(drift_report: dict | None = None) -> dict[str, Any]:
             logger.info("KB refresh: fetching and upserting new documents...")
             try:
                 from data.refresh import fetch_new_records
+
                 new_records = fetch_new_records()
                 docs_added = incremental_upsert(new_records)
                 result["docs_added"] = docs_added
@@ -102,9 +101,7 @@ def trigger_refresh(drift_report: dict | None = None) -> dict[str, Any]:
             reason = "psi_alert"
             if drift_report:
                 reason = f"psi_{drift_report.get('status', 'alert')}"
-                tracker.log_params(
-                    {"psi_score": drift_report.get("psi_score", 0.0)}
-                )
+                tracker.log_params({"psi_score": drift_report.get("psi_score", 0.0)})
             tracker.log_kb_refresh_triggered(reason=reason)
 
             result["status"] = "completed"

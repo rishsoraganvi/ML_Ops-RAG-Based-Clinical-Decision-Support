@@ -70,7 +70,9 @@ def _fetch_mlflow_runs(experiment_name: str, max_results: int = 50) -> pd.DataFr
     return df
 
 
-def _api_post(endpoint: str, json_body: dict | None = None, timeout: float = 120) -> dict:
+def _api_post(
+    endpoint: str, json_body: dict | None = None, timeout: float = 120
+) -> dict:
     """POST to FastAPI backend with error handling."""
     try:
         resp = requests.post(
@@ -112,15 +114,18 @@ def _render_query_panel() -> None:
 
     if st.button("Submit Query", type="primary") and question.strip():
         with st.spinner("Querying RAG pipeline..."):
-            result = _api_post("/query", {
-                "question": question,
-                "config": {
-                    "retriever_type": retriever,
-                    "chunk_size": chunk_size,
-                    "k": top_k,
+            result = _api_post(
+                "/query",
+                {
+                    "question": question,
+                    "config": {
+                        "retriever_type": retriever,
+                        "chunk_size": chunk_size,
+                        "k": top_k,
+                    },
+                    "log_to_mlflow": log_mlflow,
                 },
-                "log_to_mlflow": log_mlflow,
-            })
+            )
 
         if result:
             # Cache for the XAI panel to explain without re-running the query.
@@ -134,7 +139,9 @@ def _render_query_panel() -> None:
 
             col_a, col_b = st.columns(2)
             with col_a:
-                st.metric("Retrieval", f"{result.get('retrieval_latency_ms', 0):.1f} ms")
+                st.metric(
+                    "Retrieval", f"{result.get('retrieval_latency_ms', 0):.1f} ms"
+                )
             with col_b:
                 st.metric("LLM", f"{result.get('llm_latency_ms', 0):.1f} ms")
 
@@ -142,7 +149,7 @@ def _render_query_panel() -> None:
                 for i, doc in enumerate(result.get("source_docs", [])):
                     scores = result.get("retrieval_scores", [])
                     score = scores[i] if i < len(scores) else 0
-                    st.markdown(f"**Source {i+1}** (score: {score:.4f})")
+                    st.markdown(f"**Source {i + 1}** (score: {score:.4f})")
                     st.markdown(f"_{doc.get('metadata', {}).get('source', 'unknown')}_")
                     st.text(doc.get("page_content", "")[:500])
                     st.divider()
@@ -226,7 +233,7 @@ def _render_explanation(exp: dict, source_docs: list[dict]) -> None:
     if shap_values:
         shap_df = pd.DataFrame(
             {
-                "Source": [f"Doc {i+1}" for i in range(len(shap_values))],
+                "Source": [f"Doc {i + 1}" for i in range(len(shap_values))],
                 "SHAP": shap_values,
                 "Direction": ["helpful" if v >= 0 else "harmful" for v in shap_values],
             }
@@ -268,9 +275,7 @@ def _render_explanation(exp: dict, source_docs: list[dict]) -> None:
             )
         st.markdown(" · ".join(html_parts), unsafe_allow_html=True)
     if not rendered_any:
-        st.caption(
-            "Attention attribution unavailable (HF model may not be loaded)."
-        )
+        st.caption("Attention attribution unavailable (HF model may not be loaded).")
 
     # ── Term attribution ───────────────────────────────────────────────
     st.subheader("BM25 Term Attribution (top 15)")
@@ -299,7 +304,12 @@ def _render_ragas_panel() -> None:
         st.warning("No MLflow runs found. Run an evaluation first.")
         return
 
-    ragas_metrics = ["faithfulness", "context_recall", "answer_relevancy", "context_precision"]
+    ragas_metrics = [
+        "faithfulness",
+        "context_recall",
+        "answer_relevancy",
+        "context_precision",
+    ]
     available = [m for m in ragas_metrics if m in df.columns]
 
     if not available:
@@ -402,29 +412,33 @@ def _render_comparison_panel() -> None:
 
             deltas = result.get("deltas", {})
             if deltas:
-                delta_df = pd.DataFrame([
-                    {
-                        "Metric": k,
-                        "Run A": result["run_a"]["metrics"].get(k, 0),
-                        "Run B": result["run_b"]["metrics"].get(k, 0),
-                        "Delta": v,
-                    }
-                    for k, v in deltas.items()
-                ])
+                delta_df = pd.DataFrame(
+                    [
+                        {
+                            "Metric": k,
+                            "Run A": result["run_a"]["metrics"].get(k, 0),
+                            "Run B": result["run_b"]["metrics"].get(k, 0),
+                            "Delta": v,
+                        }
+                        for k, v in deltas.items()
+                    ]
+                )
                 st.dataframe(delta_df, use_container_width=True)
 
-                fig = go.Figure(data=[
-                    go.Bar(
-                        name="Run A",
-                        x=delta_df["Metric"],
-                        y=delta_df["Run A"],
-                    ),
-                    go.Bar(
-                        name="Run B",
-                        x=delta_df["Metric"],
-                        y=delta_df["Run B"],
-                    ),
-                ])
+                fig = go.Figure(
+                    data=[
+                        go.Bar(
+                            name="Run A",
+                            x=delta_df["Metric"],
+                            y=delta_df["Run A"],
+                        ),
+                        go.Bar(
+                            name="Run B",
+                            x=delta_df["Metric"],
+                            y=delta_df["Run B"],
+                        ),
+                    ]
+                )
                 fig.update_layout(
                     barmode="group",
                     template="plotly_dark",
@@ -453,13 +467,15 @@ def main() -> None:
     )
     st.title("RAGOps Clinical Decision Support")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Query",
-        "XAI Explainability",
-        "RAGAS Metrics",
-        "Drift Alerts",
-        "Experiment Comparison",
-    ])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        [
+            "Query",
+            "XAI Explainability",
+            "RAGAS Metrics",
+            "Drift Alerts",
+            "Experiment Comparison",
+        ]
+    )
 
     with tab1:
         _render_query_panel()

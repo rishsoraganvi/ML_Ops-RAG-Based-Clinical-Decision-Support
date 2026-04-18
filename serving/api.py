@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import httpx
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from src.config.settings import settings
@@ -338,9 +338,7 @@ async def xai_check(req: XAIRequest) -> XAIResponse:
 
     try:
         vectors = (
-            [np.array(v) for v in req.current_vectors]
-            if req.current_vectors
-            else None
+            [np.array(v) for v in req.current_vectors] if req.current_vectors else None
         )
         score = await asyncio.to_thread(compute_consistency, vectors)
     except RuntimeError as exc:
@@ -411,9 +409,7 @@ class ExplainResponse(BaseModel):
 async def explain_endpoint(req: ExplainRequest) -> ExplainResponse:
     """Run the unified XAI pipeline on a prior /query result. # XAI CONTRIBUTION"""
     if not req.source_docs:
-        raise HTTPException(
-            status_code=400, detail="source_docs must be non-empty"
-        )
+        raise HTTPException(status_code=400, detail="source_docs must be non-empty")
 
     try:
         from evaluation.explainability import explain as xai_explain

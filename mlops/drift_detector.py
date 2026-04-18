@@ -41,9 +41,7 @@ def capture_baseline(embeddings: np.ndarray) -> None:
     """
     # PAPER CONTRIBUTION
     if embeddings.ndim != 2 or embeddings.shape[1] == 0:
-        raise ValueError(
-            f"Expected 2-D embedding matrix, got shape {embeddings.shape}"
-        )
+        raise ValueError(f"Expected 2-D embedding matrix, got shape {embeddings.shape}")
 
     store = get_baseline_store()
     store.save_psi_baseline(embeddings)
@@ -86,9 +84,7 @@ def _psi_per_dimension(
         actual = (current_counts / current_counts.sum()) + _EPSILON
 
         # PSI = sum((actual - expected) * ln(actual / expected))
-        psi_scores[dim] = float(
-            np.sum((actual - expected) * np.log(actual / expected))
-        )
+        psi_scores[dim] = float(np.sum((actual - expected) * np.log(actual / expected)))
 
     return psi_scores
 
@@ -181,7 +177,9 @@ def alert(psi_score: float) -> dict[str, Any]:
     else:
         status = "stable"
         action = "none"
-        logger.info("PSI STABLE: %.4f < %.2f", psi_score, settings.psi_warning_threshold)
+        logger.info(
+            "PSI STABLE: %.4f < %.2f", psi_score, settings.psi_warning_threshold
+        )
 
     return {
         "status": status,
@@ -217,7 +215,9 @@ def monitor_generation() -> dict[str, Any]:
 
     experiment = client.get_experiment_by_name(settings.mlflow_experiment_name)
     if experiment is None:
-        logger.warning("MLflow experiment '%s' not found.", settings.mlflow_experiment_name)
+        logger.warning(
+            "MLflow experiment '%s' not found.", settings.mlflow_experiment_name
+        )
         return {
             "current_avg": 0.0,
             "baseline_avg": 0.0,
@@ -235,16 +235,16 @@ def monitor_generation() -> dict[str, Any]:
     if len(runs) < 2:
         logger.info("Not enough runs for generation drift monitoring (%d).", len(runs))
         return {
-            "current_avg": runs[0].data.metrics.get("faithfulness", 0.0) if runs else 0.0,
+            "current_avg": runs[0].data.metrics.get("faithfulness", 0.0)
+            if runs
+            else 0.0,
             "baseline_avg": 0.0,
             "drop_pct": 0.0,
             "generation_drift": False,
         }
 
     faithfulness_scores = [
-        r.data.metrics["faithfulness"]
-        for r in runs
-        if "faithfulness" in r.data.metrics
+        r.data.metrics["faithfulness"] for r in runs if "faithfulness" in r.data.metrics
     ]
 
     # Split: recent half vs older half for comparison
