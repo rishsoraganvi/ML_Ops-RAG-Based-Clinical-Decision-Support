@@ -49,11 +49,12 @@ CLINICAL_PROMPT = PromptTemplate(
 # ---------------------------------------------------------------------------
 
 DEFAULT_CONFIG = {
-    "retriever_type": "dense",   # dense | bm25 | hybrid
-    "chunk_size":     256,       # 256 | 512 | 1024   ← ABLATION EXPERIMENT
-    "k":              DEFAULT_K,
-    "reranker":       False,     # True only for hybrid (Week 2)
-    "dense_weight":   0.6,       # hybrid RRF weight — spec: 0.6 dense + 0.4 BM25
+    "retriever_type":    "dense",   # dense | bm25 | hybrid
+    "chunk_size":        256,       # 256 | 512 | 1024   ← ABLATION EXPERIMENT
+    "k":                 DEFAULT_K,
+    "reranker":          False,     # True only for hybrid (Week 2)
+    "dense_weight":      0.6,       # hybrid RRF weight — spec: 0.6 dense + 0.4 BM25
+    "preprocess_query":  True,      # expand medical abbreviations before retrieval
 }
 
 
@@ -137,9 +138,16 @@ def query(
     """
     cfg = {**DEFAULT_CONFIG, **(config or {})}
 
+    # ── 0. Optional medical query preprocessing ──────────────────────────
+    if cfg.get("preprocess_query", True):
+        from .query_processor import preprocess_query
+        question_processed = preprocess_query(question)
+    else:
+        question_processed = question
+
     # ── 1. Score-aware retrieval (bypasses LangChain for raw scores) ──────
     docs, scores, retrieval_ms = retrieve_with_scores(
-        question=question,
+        question=question_processed,
         retriever_type=cfg["retriever_type"],
         chunk_size=cfg["chunk_size"],
         k=cfg["k"],
@@ -153,7 +161,7 @@ def query(
     llm    = _get_llm()
     t_llm  = time.perf_counter()
 
-    prompt_text = CLINICAL_PROMPT.format(context=context, question=question)
+    prompt_text = CLINICAL_PROMPT.format(context=context, question=question_processed)
     llm_resp    = llm.invoke(prompt_text)
     answer      = llm_resp.content.strip()
 
@@ -178,7 +186,7 @@ def query(
 
     # ── 5. Optional MLflow logging ─────────────────────────────────────────
     if mlflow_run:
-        _log_to_mlflow(question, result, cfg)
+        _log_to_mlflow(question, result, cfg, question_processed=question_processed)
 
     logger.info(
         "query() done | retriever=%s | chunk=%d | retrieval=%.1f ms | "
@@ -250,7 +258,12 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
 # MLflow helper
 # ---------------------------------------------------------------------------
 
-def _log_to_mlflow(question: str, result: dict, cfg: dict) -> None:
+def _log_to_mlflow(
+    question: str,
+    result: dict,
+    cfg: dict,
+    question_processed: Optional[str] = None,
+) -> None:
     """Log one RAG query as an MLflow run via RAGOpsTracker."""
     from mlops.mlflow_tracker import RAGOpsTracker, RunTrigger
 
@@ -264,7 +277,9 @@ def _log_to_mlflow(question: str, result: dict, cfg: dict) -> None:
         # Log text artifacts via scoped mlflow import
         import mlflow
 
-        mlflow.log_text(question, "question.txt")
+        mlflow.log_text(question, "question_raw.txt")
+        if question_processed is not None and question_processed != question:
+            mlflow.log_text(question_processed, "question_preprocessed.txt")
         mlflow.log_text(result["answer"], "answer.txt")
 
 

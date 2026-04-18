@@ -367,3 +367,94 @@ async def xai_check(req: XAIRequest) -> XAIResponse:
             "alert": settings.xai_alert_threshold,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Explain endpoint — runs the full XAI pipeline on one query result
+# ---------------------------------------------------------------------------
+
+
+class ExplainRequest(BaseModel):
+    """Input for the /explain endpoint — the output of a prior /query call."""
+
+    question: str
+    source_docs: list[SourceDoc]
+    retrieval_scores: list[float]
+    answer: str | None = None
+
+
+class TokenAttributionSpan(BaseModel):
+    text: str
+    score: float
+    char_start: int
+    char_end: int
+
+
+class TokenAttributionSentence(BaseModel):
+    sentence_idx: int
+    sentence: str
+    spans: list[TokenAttributionSpan]
+
+
+class ExplainResponse(BaseModel):
+    """Full XAI payload consumed by the Streamlit dashboard."""
+
+    shap_values: list[float]
+    token_attributions: list[TokenAttributionSentence]
+    term_attribution: dict
+    explanation_vector: list[float]
+    hallucination_risk: float
+    hallucination_reason: str
+
+
+@app.post("/explain", response_model=ExplainResponse, tags=["xai"])
+async def explain_endpoint(req: ExplainRequest) -> ExplainResponse:
+    """Run the unified XAI pipeline on a prior /query result. # XAI CONTRIBUTION"""
+    if not req.source_docs:
+        raise HTTPException(
+            status_code=400, detail="source_docs must be non-empty"
+        )
+
+    try:
+        from evaluation.explainability import explain as xai_explain
+    except ImportError as exc:
+        logger.error("XAI imports failed: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Explainability unavailable: {exc}",
+        ) from exc
+
+    try:
+        result = await asyncio.to_thread(
+            xai_explain,
+            req.question,
+            [d.model_dump() for d in req.source_docs],
+            req.retrieval_scores,
+            req.answer,
+        )
+    except Exception as exc:
+        logger.error("Explain pipeline failed: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Explainability unavailable: {exc}",
+        ) from exc
+
+    # Convert numpy array → list for JSON serialization.
+    ev = result["explanation_vector"]
+    explanation_vector = ev.tolist() if hasattr(ev, "tolist") else list(ev)
+
+    return ExplainResponse(
+        shap_values=[float(v) for v in result["shap_values"]],
+        token_attributions=[
+            TokenAttributionSentence(
+                sentence_idx=s["sentence_idx"],
+                sentence=s["sentence"],
+                spans=[TokenAttributionSpan(**sp) for sp in s["spans"]],
+            )
+            for s in result["token_attributions"]
+        ],
+        term_attribution=result["term_attribution"],
+        explanation_vector=explanation_vector,
+        hallucination_risk=float(result["hallucination_risk"]),
+        hallucination_reason=result["hallucination_reason"],
+    )

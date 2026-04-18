@@ -123,6 +123,10 @@ def _render_query_panel() -> None:
             })
 
         if result:
+            # Cache for the XAI panel to explain without re-running the query.
+            st.session_state["last_query_result"] = result
+            st.session_state["last_query_question"] = question
+
             st.subheader("Answer")
             st.write(result.get("answer", "No answer returned."))
 
@@ -150,15 +154,40 @@ def _render_query_panel() -> None:
 
 
 def _render_xai_panel() -> None:
-    """XAI explanation visualisations."""
+    """XAI explanation visualisations powered by /explain + /xai/check."""
     st.header("Explainability (XAI)")
 
-    st.info(
-        "Full XAI panel (SHAP values, attention attribution, hallucination risk) "
-        "will be available after evaluation/explainability.py is implemented (Phase 3). "
-        "The /xai/check endpoint is wired and ready."
-    )
+    last = st.session_state.get("last_query_result")
+    last_q = st.session_state.get("last_query_question", "")
 
+    if last is None:
+        st.info(
+            "Run a query from the **Query** tab first — the XAI panel explains "
+            "the most recent answer (SHAP values, attention attribution, "
+            "hallucination risk)."
+        )
+    else:
+        st.caption(f"Explaining last query: _{last_q}_")
+        if st.button("Explain Last Query", type="primary"):
+            payload = {
+                "question": last_q,
+                "source_docs": last.get("source_docs", []),
+                "retrieval_scores": last.get("retrieval_scores", []),
+                "answer": last.get("answer"),
+            }
+            with st.spinner("Generating explanation..."):
+                exp = _api_post("/explain", payload, timeout=180)
+
+            if not exp:
+                st.info(
+                    "Explainability service unavailable — ensure `shap`, "
+                    "`transformers`, and `torch` are installed in the FastAPI image."
+                )
+            else:
+                _render_explanation(exp, last.get("source_docs", []))
+
+    # Keep the consistency-monitor channel visible as a secondary section.
+    st.divider()
     st.subheader("XAI Consistency Check")
     if st.button("Run XAI Consistency Check"):
         with st.spinner("Checking explanation consistency..."):
@@ -174,6 +203,85 @@ def _render_xai_panel() -> None:
                 st.warning(f"WARNING — consistency score: {score:.4f}")
             else:
                 st.error(f"INSTABILITY — consistency score: {score:.4f}")
+
+
+def _render_explanation(exp: dict, source_docs: list[dict]) -> None:
+    """Render the six-key XAI payload returned by /explain."""
+    # ── Hallucination risk ─────────────────────────────────────────────
+    risk = float(exp.get("hallucination_risk", 0.0))
+    reason = exp.get("hallucination_reason", "")
+    col_risk, _ = st.columns([1, 2])
+    with col_risk:
+        st.metric("Hallucination Risk", f"{risk * 100:.1f}%")
+    if risk < 0.3:
+        st.success(f"Low risk. {reason}")
+    elif risk < 0.6:
+        st.warning(f"Moderate risk. {reason}")
+    else:
+        st.error(f"High risk. {reason}")
+
+    # ── SHAP bar chart ─────────────────────────────────────────────────
+    st.subheader("Per-Document SHAP Values")
+    shap_values = exp.get("shap_values", [])
+    if shap_values:
+        shap_df = pd.DataFrame(
+            {
+                "Source": [f"Doc {i+1}" for i in range(len(shap_values))],
+                "SHAP": shap_values,
+                "Direction": ["helpful" if v >= 0 else "harmful" for v in shap_values],
+            }
+        )
+        fig = px.bar(
+            shap_df,
+            x="Source",
+            y="SHAP",
+            color="Direction",
+            color_discrete_map={"helpful": "#3182bd", "harmful": "#e6550d"},
+            template="plotly_dark",
+            title="How each retrieved doc influenced faithfulness proxy",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.caption("No SHAP values returned.")
+
+    # ── Attention highlights ───────────────────────────────────────────
+    st.subheader("Attention-Weighted Context")
+    token_attrs = exp.get("token_attributions", [])
+    rendered_any = False
+    for attr in token_attrs:
+        sent = attr.get("sentence", "")
+        spans = attr.get("spans", [])
+        if not sent and not spans:
+            continue
+        rendered_any = True
+        st.markdown(f"**Answer sentence {attr.get('sentence_idx', 0) + 1}:** {sent}")
+        if not spans:
+            st.caption("(no top spans)")
+            continue
+        max_score = max((s.get("score", 0.0) for s in spans), default=1e-6) or 1e-6
+        html_parts = []
+        for s in spans:
+            weight = max(0.15, min(1.0, float(s.get("score", 0.0)) / max_score))
+            html_parts.append(
+                f'<mark style="background: rgba(255,200,0,{weight:.2f}); '
+                f'padding: 0 3px; border-radius: 3px;">{s.get("text", "")}</mark>'
+            )
+        st.markdown(" · ".join(html_parts), unsafe_allow_html=True)
+    if not rendered_any:
+        st.caption(
+            "Attention attribution unavailable (HF model may not be loaded)."
+        )
+
+    # ── Term attribution ───────────────────────────────────────────────
+    st.subheader("BM25 Term Attribution (top 15)")
+    term_attr = exp.get("term_attribution", {}) or {}
+    global_scores = term_attr.get("global", {})
+    if global_scores:
+        top = list(global_scores.items())[:15]
+        term_df = pd.DataFrame(top, columns=["Term", "Score"])
+        st.dataframe(term_df, use_container_width=True, hide_index=True)
+    else:
+        st.caption("No BM25 term overlap with source documents.")
 
 
 # ---------------------------------------------------------------------------

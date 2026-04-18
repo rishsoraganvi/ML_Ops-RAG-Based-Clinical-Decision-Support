@@ -85,7 +85,7 @@ streamlit run serving/dashboard.py
 
 This opens the RAGOps dashboard in your browser with 5 panels:
 - **Query** — type a medical question and get an AI-generated answer
-- **XAI Explainability** — see why the AI gave that answer
+- **XAI Explainability** — see *why* the AI gave that answer (SHAP per-doc bars, attention highlights, BM25 term overlap, hallucination-risk meter)
 - **RAGAS Metrics** — track answer quality over time
 - **Drift Alerts** — detect when the knowledge base is going stale
 - **Experiment Comparison** — compare different system configurations
@@ -96,7 +96,7 @@ In the Query panel, type something like:
 
 > What are the first-line treatments for type 2 diabetes?
 
-Select a retriever type (start with "dense"), chunk size (512), and click Submit.
+Select a retriever type (start with "dense"), chunk size (512), and click Submit. Then switch to the **XAI Explainability** tab and click "Explain Last Query" to see why the answer looks the way it does.
 
 ### Stopping and Restarting
 
@@ -156,11 +156,15 @@ Key env vars you might want to change:
 
 ```bash
 docker compose up -d
+# or, equivalently:
+make up
 ```
 
 The stack creates 3 named volumes (`chroma_data`, `mlflow_data`, `ollama_data`) that persist across restarts. Ollama auto-pulls LLaMA-3-8B on first boot via `docker/ollama/pull_model.sh` (idempotent — skips if cached).
 
 Service dependency: FastAPI waits for all 3 upstream services to be healthy before starting.
+
+> **Windows note:** The `Makefile` uses POSIX shell idioms (`rm -rf`, `find`, etc.). Run `make` targets from **WSL** or **Git Bash** on Windows. Plain Docker / Python commands work fine in PowerShell.
 
 ### 3. Verify Health
 
@@ -170,6 +174,7 @@ docker compose ps
 
 # Programmatic health check with timeout
 python scripts/healthcheck.py --timeout 300
+# or: make healthcheck
 
 # Or hit the health endpoint directly
 curl http://localhost:8080/health
@@ -216,19 +221,27 @@ curl -X POST http://localhost:8080/query \
   -H "Content-Type: application/json" \
   -d '{"question": "What are the first-line treatments for type 2 diabetes?", "config": {"retriever_type": "dense", "chunk_size": 512, "k": 5}}'
 
+# Explain the most recent query result (SHAP + attention + BM25 + hallucination risk)
+#   — pipe the /query response into /explain (same shape)
+curl -X POST http://localhost:8080/explain \
+  -H "Content-Type: application/json" \
+  -d @last_query.json
+
 # Run RAGAS CI evaluation (5-question smoke test)
 curl -X POST http://localhost:8080/evaluate \
   -H "Content-Type: application/json" \
   -d '{"mode": "ci", "run_quality_gate": true}'
 
 # Check embedding drift (requires baseline captured first)
-curl -X POST http://localhost:8080/drift/check
+curl -X POST http://localhost:8080/drift/check       # or: make drift-check
 
 # Check XAI explanation consistency (requires baseline)
 curl -X POST http://localhost:8080/xai/check \
   -H "Content-Type: application/json" \
-  -d '{}'
+  -d '{}'                                            # or: make xai-check
 ```
+
+> **Baselines first.** `/drift/check` and `/xai/check` both require baselines captured via `scripts/run_baseline_eval.py` — see Section 8.
 
 ### 7. Launch the Dashboard
 
@@ -241,36 +254,75 @@ Opens at http://localhost:8501 with 5 panels: Query, XAI, RAGAS Metrics, Drift A
 
 ### 8. Run Tests and Linting
 
+The test suite has two tiers — mock-based unit tests (CI-safe, no Docker) and end-to-end integration tests (opt-in, requires the docker stack). The `integration` pytest marker is registered in `pytest.ini` and gated by `RAGOPS_E2E=1`.
+
 ```bash
-# Unit tests (no Docker needed — uses SQLite fixture)
-MLFLOW_TRACKING_URI=sqlite:///test_mlflow.db ENVIRONMENT=test pytest src/ mlops/ -v
+# Mock-based unit tests — no Docker required (uses SQLite + stubbed Ollama/Chroma)
+MLFLOW_TRACKING_URI=sqlite:///test_mlflow.db ENVIRONMENT=test \
+  pytest tests/ src/ mlops/ -m "not integration" -v
+# or: make test-unit
 
 # Single test file
-pytest src/infra/test/test_mlflow_tracker.py -v
+pytest tests/test_explainability.py -v
 
 # Coverage (CI requires 80%)
-pytest src/ mlops/ --cov=src --cov=mlops --cov-report=term-missing --cov-fail-under=80
+pytest tests/ src/ mlops/ -m "not integration" \
+  --cov=src --cov=mlops --cov-report=term-missing --cov-fail-under=80
 
-# Lint
-ruff check src/ mlops/ serving/ evaluation/ --output-format=github
-ruff format src/ mlops/ serving/ evaluation/ --check
+# End-to-end integration tier — requires docker stack + populated ChromaDB
+RAGOPS_E2E=1 pytest tests/test_e2e.py -m integration -v
+# or: make test-e2e
+
+# Lint + format
+ruff check src/ mlops/ serving/ evaluation/ rag_pipeline/ tests/     # or: make lint
+ruff format src/ mlops/ serving/ evaluation/ rag_pipeline/ tests/ --check
 
 # Type check
 mypy src/ mlops/ serving/ --ignore-missing-imports --strict --exclude src/infra/test
+# or: make typecheck
 ```
 
-### 9. Service Access Points
+### 9. Capture Baselines and Run Evaluations
+
+Drift detection (PSI) and XAI consistency monitoring both compare the current system state against a reference captured from a known-good configuration. Run this once after ingestion and again after every KB refresh:
+
+```bash
+# Full baseline — RAGAS eval (50 Qs) + PSI embedding baseline + XAI explanation baseline
+python scripts/run_baseline_eval.py
+# or: make baseline
+
+# Partial captures (mix-and-match as needed)
+python scripts/run_baseline_eval.py --skip-xai     # RAGAS + PSI only
+python scripts/run_baseline_eval.py --skip-eval    # baselines only (no RAGAS)
+```
+
+For the 9-config ablation sweep used to populate Paper TABLE 1 and to produce weak labels for the hallucination classifier, follow `evaluation/ablations/RUNBOOK.md`:
+
+```bash
+# Inspect the grid without running the LLM
+python evaluation/ablations/run_ablations.py --dry-run
+
+# Full sweep (single worker recommended with SQLite MLflow — hours on CPU)
+python evaluation/ablations/run_ablations.py \
+    --qa-file evaluation/benchmarks/qa_pairs.json --workers 1
+# or: make eval-full
+
+# Fast CI smoke (5-question stub)
+make eval-ci
+```
+
+### 10. Service Access Points
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| FastAPI | http://localhost:8080 | Main API (`/health`, `/query`, `/evaluate`, `/drift/check`, `/xai/check`) |
+| FastAPI | http://localhost:8080 | Main API (`/health`, `/query`, `/explain`, `/evaluate`, `/drift/check`, `/xai/check`) |
 | FastAPI Docs | http://localhost:8080/docs | Interactive Swagger UI |
 | MLflow | http://localhost:5000 | Experiment tracking dashboard |
 | ChromaDB | http://localhost:8000 | Vector store API |
 | Ollama | http://localhost:11434 | LLM inference API |
 | Streamlit | http://localhost:8501 | User-facing dashboard (run separately) |
 
-### 10. Common Operations
+### 11. Common Operations
 
 ```bash
 # View logs for a specific service
@@ -293,12 +345,24 @@ docker exec ragops_ollama nvidia-smi
 ### Project Architecture (Quick Reference)
 
 ```
-serving/api.py ──────> rag_pipeline/chain.py ──> retriever.py ──> vectorstore.py (ChromaDB)
-                  |                                              > ingest.py
-                  |──> evaluation/ragas_runner.py               (LangChain + Ollama)
-                  |──> mlops/drift_detector.py ──> src/infra/baseline_store.py
+serving/api.py ──────> rag_pipeline/chain.py ──> query_processor.py  (abbrev/MeSH expansion)
+                  |                          ──> retriever.py ──> vectorstore.py (ChromaDB)
+                  |                          ──> ingest.py
+                  |                           (LangChain + Ollama)
+                  |──> evaluation/ragas_runner.py
+                  |──> evaluation/explainability.py   (SHAP + distilbert saliency + BM25 terms
+                  |                                    + HallucinationClassifier)
+                  |──> mlops/drift_detector.py ────> src/infra/baseline_store.py
                   |──> mlops/explanation_monitor.py ──> src/infra/baseline_store.py
-                  
+
 src/config/settings.py ──> read by mlops/, serving/, src/ (central config singleton)
 rag_pipeline/ ──> uses os.environ directly (LangChain convention)
 ```
+
+### CI/CD Workflows
+
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `.github/workflows/pr_checks.yml` | PR to `main`/`develop`, push to `develop` | ruff + mypy + no-print guard + unit-tests (80% cov) + docker-build |
+| `.github/workflows/pr_checks.yml` — `ragas-ci-eval` job | PRs to `main`/`develop` only | Brings up the compose stack, pulls `llama3.2:1b`, gates on `faithfulness ≥ 0.70` and `context_recall ≥ 0.65` |
+| `.github/workflows/refresh.yml` | Cron `7 6 * * 1` (Mon 06:07 UTC) + manual dispatch | Runs `mlops.refresh_trigger.trigger_refresh`; posts before/after metric comment on the specified issue on manual runs |

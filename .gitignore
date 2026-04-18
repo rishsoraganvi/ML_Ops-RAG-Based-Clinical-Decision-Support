@@ -87,3 +87,8 @@ Solo_plan.md
 *.log
 *.tmp
 *.bak
+
+# ── Stray JS tooling (not part of the Python project) ───────────────────────
+node_modules/
+package.json
+package-lock.json

@@ -29,6 +29,10 @@ scipy==1.13.*
 
 # ── XAI monitoring (XAI CONTRIBUTION) ────────────────────────────────────────
 shap==0.45.*
+transformers==4.41.*               # distilbert for gradient-saliency attention attribution
+torch==2.3.*                       # CPU wheel sufficient; GPU only needed for LLaMA via Ollama
+scikit-learn==1.4.*                # LogisticRegression for hallucination classifier
+joblib==1.4.*                      # classifier persistence
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 httpx==0.27.*                      # async HTTP client (Ollama calls)
