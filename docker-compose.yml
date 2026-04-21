@@ -68,7 +68,7 @@ services:
     ports:
       - "${MLFLOW_PORT:-5000}:5000"
     volumes:
-      - mlflow_data:/mlflow
+      - ./mlflow_data:/mlflow
     networks:
       - ragops_net
     healthcheck:
