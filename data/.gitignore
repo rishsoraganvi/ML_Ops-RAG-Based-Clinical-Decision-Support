@@ -1,1 +1,6 @@
+# ── Data directory ignores ────────────────────────────────────────────────────
 /processed
+quality_report.html
+*.jsonl
+*.csv
+chroma_store/

@@ -1,14 +1,14 @@
 # data/ingest.py
-import sys
-import os
+from typing import Any
+
 import numpy as np
+from numpy.typing import NDArray
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-from chroma_interface import get_embeddings as _get_embeddings
-from chroma_interface import incremental_upsert as _incremental_upsert
+from src.chroma_interface import get_embeddings as _get_embeddings
+from src.chroma_interface import incremental_upsert as _incremental_upsert
 
 
-def get_embeddings() -> np.ndarray:
+def get_embeddings() -> NDArray[np.float32]:
     """
     Returns embedding matrix of shape (n_docs, 384).
     Called by Member 1 (MLOps) for drift detection baseline.
@@ -16,7 +16,7 @@ def get_embeddings() -> np.ndarray:
     return _get_embeddings()
 
 
-def incremental_upsert(new_docs: list) -> int:
+def incremental_upsert(new_docs: list[dict[str, Any]]) -> int:
     """
     Adds new documents to ChromaDB without re-embedding existing ones.
     new_docs: list of dicts with keys: pmid, text, title, pub_date, mesh_terms, word_count

@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-MODEL="${OLLAMA_MODEL:-llama3:8b}"
+MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
 MAX_RETRIES=10
 RETRY_DELAY=10
 

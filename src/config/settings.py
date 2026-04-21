@@ -32,7 +32,7 @@ class RAGOpsSettings(BaseSettings):
     chroma_port: int = 8000
     mlflow_tracking_uri: str = "http://mlflow:5000"
     ollama_base_url: str = "http://ollama:11434"
-    ollama_model: str = "llama3:8b"
+    ollama_model: str = "llama3.2:3b"
 
     # ── MLflow experiment ─────────────────────────────────────────────────────
     mlflow_experiment_name: str = "ragops_clinical"

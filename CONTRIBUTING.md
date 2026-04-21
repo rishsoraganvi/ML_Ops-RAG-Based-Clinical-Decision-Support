@@ -162,7 +162,7 @@ import mlflow
 
 # Internal last
 from src.config.settings import settings
-from src.infra.mlflow_tracker import RAGOpsTracker
+from mlops.mlflow_tracker import RAGOpsTracker
 ```
 
 ### Naming

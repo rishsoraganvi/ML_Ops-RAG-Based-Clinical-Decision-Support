@@ -1,3 +1,94 @@
+# =============================================================================
+# RAGOps — Root .gitignore
+# =============================================================================
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+*.whl
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Testing ──────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.cover
+test_mlflow.db
+test_mlflow*.db
+mlruns.db
+
+# ── Linting / Type checking ─────────────────────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Environment / Secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── MLflow local artifacts ───────────────────────────────────────────────────
+mlruns/
+mlartifacts/
+
+# ── DVC ──────────────────────────────────────────────────────────────────────
+# Track .dvc config but not cached data
+/data/processed/*.jsonl
+/data/processed/*.csv
+.dvc/cache/
+.dvc/tmp/
+
+# ── Data artifacts ───────────────────────────────────────────────────────────
+data/chroma_store/
+data/quality_report.html
+ablation_outputs/
+
+# ── Claude Code ──────────────────────────────────────────────────────────────
+.claude/
+
+# ── Project-specific ignores (pre-existing) ──────────────────────────────────
 PROGRESS.md
 CLAUDE.md
-RAGOps_Solo_Plan_and_Guide.md
+Solo_plan.md
+
+# ── Jupyter ──────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── OS generated ─────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+
+# ── Stray JS tooling (not part of the Python project) ───────────────────────
+node_modules/
+package.json
+package-lock.json

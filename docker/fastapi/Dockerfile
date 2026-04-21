@@ -19,19 +19,21 @@ RUN groupadd --gid 1001 ragops && \
 WORKDIR /app
 
 # ── Python deps (cached layer — copy requirements first) ─────────────────────
-COPY requirements.txt .
+COPY docker/fastapi/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # ── Application source ────────────────────────────────────────────────────────
-COPY --chown=ragops:ragops . .
+COPY --chown=ragops:ragops serving/ ./serving/
+COPY --chown=ragops:ragops src/ ./src/
+COPY --chown=ragops:ragops mlops/ ./mlops/
 
 USER ragops
 
 EXPOSE 8080
 
 # Uvicorn with 2 workers; override LOG_LEVEL via env
-CMD ["uvicorn", "src.main:app", \
+CMD ["uvicorn", "serving.api:app", \
      "--host", "0.0.0.0", \
      "--port", "8080", \
      "--workers", "2", \

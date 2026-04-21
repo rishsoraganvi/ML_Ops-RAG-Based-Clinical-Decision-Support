@@ -1,5 +1,5 @@
 """
-chain.py — LangChain RetrievalQA chain connecting retrieval to LLaMA-3 via Ollama.
+chain.py — LangChain RetrievalQA chain connecting retrieval to LLaMA-3.2 via Ollama.
 
 Exposes two public APIs required by the project spec:
 
@@ -11,10 +11,10 @@ Exposes two public APIs required by the project spec:
 """
 
 import logging
+import os
 import time
 from typing import Optional
 
-import mlflow
 from langchain_community.chat_models import ChatOllama
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -28,10 +28,9 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-OLLAMA_BASE_URL  = "http://localhost:11434"
-OLLAMA_MODEL     = "llama3"               # ollama pull llama3
+OLLAMA_BASE_URL  = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL     = os.getenv("OLLAMA_MODEL", "llama3.2:3b")  # ollama pull llama3.2:3b
 OLLAMA_TEMP      = 0.0                    # deterministic for ablations
-MLFLOW_EXP_NAME  = "ragops_ablation"
 
 CLINICAL_PROMPT = PromptTemplate(
     input_variables=["context", "question"],
@@ -51,11 +50,12 @@ CLINICAL_PROMPT = PromptTemplate(
 # ---------------------------------------------------------------------------
 
 DEFAULT_CONFIG = {
-    "retriever_type": "dense",   # dense | bm25 | hybrid
-    "chunk_size":     256,       # 256 | 512 | 1024   ← ABLATION EXPERIMENT
-    "k":              DEFAULT_K,
-    "reranker":       False,     # True only for hybrid (Week 2)
-    "dense_weight":   0.6,       # hybrid RRF weight — spec: 0.6 dense + 0.4 BM25
+    "retriever_type":    "dense",   # dense | bm25 | hybrid
+    "chunk_size":        256,       # 256 | 512 | 1024   ← ABLATION EXPERIMENT
+    "k":                 DEFAULT_K,
+    "reranker":          False,     # True only for hybrid (Week 2)
+    "dense_weight":      0.6,       # hybrid RRF weight — spec: 0.6 dense + 0.4 BM25
+    "preprocess_query":  True,      # expand medical abbreviations before retrieval
 }
 
 
@@ -139,9 +139,16 @@ def query(
     """
     cfg = {**DEFAULT_CONFIG, **(config or {})}
 
+    # ── 0. Optional medical query preprocessing ──────────────────────────
+    if cfg.get("preprocess_query", True):
+        from .query_processor import preprocess_query
+        question_processed = preprocess_query(question)
+    else:
+        question_processed = question
+
     # ── 1. Score-aware retrieval (bypasses LangChain for raw scores) ──────
     docs, scores, retrieval_ms = retrieve_with_scores(
-        question=question,
+        question=question_processed,
         retriever_type=cfg["retriever_type"],
         chunk_size=cfg["chunk_size"],
         k=cfg["k"],
@@ -155,7 +162,7 @@ def query(
     llm    = _get_llm()
     t_llm  = time.perf_counter()
 
-    prompt_text = CLINICAL_PROMPT.format(context=context, question=question)
+    prompt_text = CLINICAL_PROMPT.format(context=context, question=question_processed)
     llm_resp    = llm.invoke(prompt_text)
     answer      = llm_resp.content.strip()
 
@@ -180,7 +187,7 @@ def query(
 
     # ── 5. Optional MLflow logging ─────────────────────────────────────────
     if mlflow_run:
-        _log_to_mlflow(question, result, cfg)
+        _log_to_mlflow(question, result, cfg, question_processed=question_processed)
 
     logger.info(
         "query() done | retriever=%s | chunk=%d | retrieval=%.1f ms | "
@@ -252,22 +259,29 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
 # MLflow helper
 # ---------------------------------------------------------------------------
 
-def _log_to_mlflow(question: str, result: dict, cfg: dict) -> None:
-    """Log one RAG query as an MLflow run."""
-    mlflow.set_experiment(MLFLOW_EXP_NAME)
-    with mlflow.start_run(run_name=f"{cfg['retriever_type']}_{cfg['chunk_size']}"):
-        mlflow.log_params(cfg)
-        mlflow.log_metrics(
-            {
-                "retrieval_latency_ms": result["retrieval_latency_ms"],
-                "llm_latency_ms":       result["llm_latency_ms"],
-                "total_latency_ms":     result["total_latency_ms"],
-                "top_retrieval_score":  result["retrieval_scores"][0]
-                                        if result["retrieval_scores"] else 0.0,
-            }
-        )
-        mlflow.log_text(question,          "question.txt")
-        mlflow.log_text(result["answer"],  "answer.txt")
+def _log_to_mlflow(
+    question: str,
+    result: dict,
+    cfg: dict,
+    question_processed: Optional[str] = None,
+) -> None:
+    """Log one RAG query as an MLflow run via RAGOpsTracker."""
+    from mlops.mlflow_tracker import RAGOpsTracker, RunTrigger
+
+    tracker = RAGOpsTracker()
+    with tracker.start_run(
+        triggered_by=RunTrigger.MANUAL,
+        run_name=f"{cfg['retriever_type']}_{cfg['chunk_size']}",
+    ):
+        tracker.log_params(cfg)
+        tracker.log_retrieval_latency(result["retrieval_latency_ms"])
+        # Log text artifacts via scoped mlflow import
+        import mlflow
+
+        mlflow.log_text(question, "question_raw.txt")
+        if question_processed is not None and question_processed != question:
+            mlflow.log_text(question_processed, "question_preprocessed.txt")
+        mlflow.log_text(result["answer"], "answer.txt")
 
 
 # ---------------------------------------------------------------------------

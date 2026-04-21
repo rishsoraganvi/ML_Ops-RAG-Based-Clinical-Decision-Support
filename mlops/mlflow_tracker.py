@@ -23,7 +23,7 @@ Design principles
 
 Usage (typical eval cycle)::
 
-    from src.infra.mlflow_tracker import RAGOpsTracker, RunTrigger
+    from mlops.mlflow_tracker import RAGOpsTracker, RunTrigger
 
     tracker = RAGOpsTracker()
 
@@ -40,7 +40,6 @@ Usage (typical eval cycle)::
 """
 
 import logging
-import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
@@ -59,16 +58,19 @@ logger = logging.getLogger("ragops.infra.mlflow_tracker")
 # Constants
 # ---------------------------------------------------------------------------
 
+
 class RunTrigger(str, Enum):
     """Controlled vocabulary for the ``triggered_by`` run tag."""
+
     CI = "ci"
     MANUAL = "manual"
-    DRIFT = "drift"       # PAPER CONTRIBUTION — auto-triggered by PSI alert
+    DRIFT = "drift"  # PAPER CONTRIBUTION — auto-triggered by PSI alert
     SCHEDULED = "scheduled"
 
 
 class PSIStatus(str, Enum):
     """PSI drift severity levels.  # PAPER CONTRIBUTION"""
+
     STABLE = "stable"
     WARNING = "warning"
     ALERT = "alert"
@@ -76,6 +78,7 @@ class PSIStatus(str, Enum):
 
 class XAIStatus(str, Enum):
     """XAI explanation consistency levels.  # XAI CONTRIBUTION"""
+
     STABLE = "stable"
     WARNING = "warning"
     INSTABILITY = "instability"
@@ -88,6 +91,7 @@ class MetricNames:
     Using a constants class (rather than inline strings) ensures
     consistency across tracker, CI quality-gate checks, and dashboards.
     """
+
     # RAGAS metrics
     FAITHFULNESS = "faithfulness"
     CONTEXT_RECALL = "context_recall"
@@ -103,22 +107,24 @@ class MetricNames:
     EXPLANATION_CONSISTENCY_SCORE = "explanation_consistency_score"
 
     # Quality gate summary
-    QUALITY_GATE_PASSED = "quality_gate_passed"   # logged as 1.0 / 0.0
+    QUALITY_GATE_PASSED = "quality_gate_passed"  # logged as 1.0 / 0.0
 
 
 class TagNames:
     """Canonical MLflow tag key names."""
+
     TRIGGERED_BY = "triggered_by"
     CHROMA_COLLECTION = "chroma_collection"
     OLLAMA_MODEL = "ollama_model"
     ENVIRONMENT = "environment"
-    PSI_STATUS = "psi_status"           # PAPER CONTRIBUTION
-    XAI_STATUS = "xai_status"           # XAI CONTRIBUTION
+    PSI_STATUS = "psi_status"  # PAPER CONTRIBUTION
+    XAI_STATUS = "xai_status"  # XAI CONTRIBUTION
 
 
 # ---------------------------------------------------------------------------
 # Result dataclasses
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RAGASMetrics:
@@ -126,6 +132,7 @@ class RAGASMetrics:
     Output shape returned by ``evaluation.ragas_runner.run_eval()``.
     Mirrors Member 3's interface contract.
     """
+
     faithfulness: float
     context_recall: float
     answer_relevancy: float
@@ -141,14 +148,16 @@ class QualityGateResult:
     Returned by ``log_quality_gate_results()`` so the CI step can
     determine pass/fail without re-querying MLflow.
     """
+
     passed: bool
-    failures: dict[str, str]   # metric_name -> "actual=X < threshold=Y"
+    failures: dict[str, str]  # metric_name -> "actual=X < threshold=Y"
     run_id: str
 
 
 # ---------------------------------------------------------------------------
 # Tracker
 # ---------------------------------------------------------------------------
+
 
 class RAGOpsTracker:
     """
@@ -208,9 +217,13 @@ class RAGOpsTracker:
         try:
             experiment_id = mlflow.create_experiment(
                 name=self._experiment_name,
-                artifact_location=None,   # use server default (/mlflow/artifacts)
+                artifact_location=None,  # use server default (/mlflow/artifacts)
             )
-            logger.info("Created MLflow experiment '%s' (id=%s)", self._experiment_name, experiment_id)
+            logger.info(
+                "Created MLflow experiment '%s' (id=%s)",
+                self._experiment_name,
+                experiment_id,
+            )
             return experiment_id
         except MlflowException as exc:
             # Race condition: another process created it between get and create
@@ -262,20 +275,29 @@ class RAGOpsTracker:
             run_name=run_name,
         )
         self._active_run = run
-        logger.info("MLflow run started — run_id=%s triggered_by=%s", run.info.run_id, triggered_by.value)
+        logger.info(
+            "MLflow run started — run_id=%s triggered_by=%s",
+            run.info.run_id,
+            triggered_by.value,
+        )
 
         # Standard tags on every run
-        mlflow.set_tags({
-            TagNames.TRIGGERED_BY: triggered_by.value,
-            TagNames.CHROMA_COLLECTION: settings.chroma_collection_name,
-            TagNames.OLLAMA_MODEL: settings.ollama_model,
-            TagNames.ENVIRONMENT: settings.environment,
-        })
+        mlflow.set_tags(
+            {
+                TagNames.TRIGGERED_BY: triggered_by.value,
+                TagNames.CHROMA_COLLECTION: settings.chroma_collection_name,
+                TagNames.OLLAMA_MODEL: settings.ollama_model,
+                TagNames.ENVIRONMENT: settings.environment,
+            }
+        )
 
         try:
             yield self
         except Exception:
-            logger.exception("Exception inside MLflow run %s — run will be ended with FAILED status", run.info.run_id)
+            logger.exception(
+                "Exception inside MLflow run %s — run will be ended with FAILED status",
+                run.info.run_id,
+            )
             mlflow.end_run(status="FAILED")
             self._active_run = None
             raise
@@ -377,13 +399,15 @@ class RAGOpsTracker:
             status = PSIStatus.ALERT
             logger.warning(
                 "PSI ALERT — score=%.4f >= alert_threshold=%.2f — KB refresh will be triggered",  # PAPER CONTRIBUTION
-                psi_score, settings.psi_alert_threshold,
+                psi_score,
+                settings.psi_alert_threshold,
             )
         elif psi_score >= settings.psi_warning_threshold:
             status = PSIStatus.WARNING
             logger.warning(
                 "PSI WARNING — score=%.4f >= warning_threshold=%.2f",  # PAPER CONTRIBUTION
-                psi_score, settings.psi_warning_threshold,
+                psi_score,
+                settings.psi_warning_threshold,
             )
         else:
             status = PSIStatus.STABLE
@@ -414,17 +438,21 @@ class RAGOpsTracker:
             status = XAIStatus.INSTABILITY
             logger.warning(
                 "XAI INSTABILITY — score=%.4f < alert_threshold=%.2f",  # XAI CONTRIBUTION
-                consistency_score, settings.xai_alert_threshold,
+                consistency_score,
+                settings.xai_alert_threshold,
             )
         elif consistency_score < settings.xai_warning_threshold:
             status = XAIStatus.WARNING
             logger.warning(
                 "XAI WARNING — score=%.4f < warning_threshold=%.2f",  # XAI CONTRIBUTION
-                consistency_score, settings.xai_warning_threshold,
+                consistency_score,
+                settings.xai_warning_threshold,
             )
         else:
             status = XAIStatus.STABLE
-            logger.info("XAI consistent — score=%.4f", consistency_score)  # XAI CONTRIBUTION
+            logger.info(
+                "XAI consistent — score=%.4f", consistency_score
+            )  # XAI CONTRIBUTION
 
         mlflow.set_tag(TagNames.XAI_STATUS, status.value)
 
@@ -477,7 +505,11 @@ class RAGOpsTracker:
         if passed:
             logger.info("Quality gate PASSED — all RAGAS metrics above thresholds")
         else:
-            logger.error("Quality gate FAILED — %d metric(s) below threshold: %s", len(failures), list(failures.keys()))
+            logger.error(
+                "Quality gate FAILED — %d metric(s) below threshold: %s",
+                len(failures),
+                list(failures.keys()),
+            )
 
         return QualityGateResult(passed=passed, failures=failures, run_id=run_id)
 
@@ -497,4 +529,6 @@ class RAGOpsTracker:
         self._assert_run_active()
         mlflow.set_tag("kb_refresh_triggered", "true")
         mlflow.set_tag("kb_refresh_reason", reason)
-        logger.info("KB refresh trigger logged — reason=%s", reason)  # PAPER CONTRIBUTION
+        logger.info(
+            "KB refresh trigger logged — reason=%s", reason
+        )  # PAPER CONTRIBUTION

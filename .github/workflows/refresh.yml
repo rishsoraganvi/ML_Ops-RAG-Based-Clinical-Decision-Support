@@ -1,0 +1,138 @@
+# =============================================================================
+# RAGOps — Knowledge Base Refresh Workflow
+#
+# Weekly cron (+ manual dispatch) that runs the full KB refresh pipeline
+# via `mlops.refresh_trigger.trigger_refresh`:
+#   1. RAGAS CI eval for "before" metrics
+#   2. Pull latest PubMed abstracts + incremental upsert into ChromaDB
+#   3. Re-capture PSI baseline with the new embedding distribution
+#   4. RAGAS CI eval again for "after" metrics
+#   5. Log the refresh event to MLflow
+#
+# Cron is minute 7 to stay off the :00 fleet-collision slot.
+# On manual dispatch we also post a summary comment on an open issue so
+# the team can see before/after deltas at a glance.
+# =============================================================================
+
+name: KB Refresh
+
+on:
+  schedule:
+    - cron: "7 6 * * 1"       # Mondays 06:07 UTC (off-minute)
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you triggering a manual refresh?"
+        required: false
+        default: "manual refresh"
+      issue_number:
+        description: "Issue to comment with the refresh summary (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: kb-refresh
+  cancel-in-progress: false    # never cancel a running refresh
+
+jobs:
+  refresh:
+    name: Run KB refresh pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: docker/fastapi/requirements.txt
+
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install -r docker/fastapi/requirements.txt
+
+      - name: Start docker-compose stack
+        run: docker compose up -d chromadb mlflow ollama fastapi
+
+      - name: Pull small LLM for refresh evals
+        run: docker compose exec -T ollama ollama pull llama3.2:1b
+
+      - name: Wait for services healthy
+        run: python scripts/healthcheck.py --timeout 300 --poll-interval 5
+
+      - name: Run refresh pipeline
+        run: |
+          python -c "
+          from mlops.refresh_trigger import trigger_refresh
+          import json
+          result = trigger_refresh()
+          with open('refresh_result.json', 'w') as f:
+              json.dump(result, f, indent=2, default=str)
+          print(json.dumps(result, indent=2, default=str))
+          "
+
+      - name: Upload refresh artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: refresh-result-${{ github.run_id }}
+          path: |
+            refresh_result.json
+            mlruns.db
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Post summary comment (manual runs only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.issue_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body;
+            try {
+              const raw = fs.readFileSync('refresh_result.json', 'utf8');
+              const r = JSON.parse(raw);
+              const before = r.before_metrics || {};
+              const after = r.after_metrics || {};
+              const metrics = ['faithfulness', 'context_recall', 'answer_relevance', 'context_precision'];
+              const rows = metrics.map(m => {
+                const b = before[m] ?? 'n/a';
+                const a = after[m]  ?? 'n/a';
+                const d = (typeof b === 'number' && typeof a === 'number') ? (a - b).toFixed(4) : '—';
+                return `| \`${m}\` | ${b} | ${a} | ${d} |`;
+              }).join('\n');
+              body = [
+                `### KB Refresh Summary — run ${context.runId}`,
+                ``,
+                `- **Status:** ${r.status || 'unknown'}`,
+                `- **Docs added:** ${r.docs_added ?? 'n/a'}`,
+                `- **Reason:** ${context.payload.inputs.reason || 'manual refresh'}`,
+                ``,
+                `| Metric | Before | After | Δ |`,
+                `| --- | --- | --- | --- |`,
+                rows,
+              ].join('\n');
+            } catch (err) {
+              body = `KB refresh completed but refresh_result.json was not readable: ${err}`;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: Number(context.payload.inputs.issue_number),
+              body,
+            });
+
+      - name: Dump FastAPI logs on failure
+        if: failure()
+        run: docker compose logs fastapi
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v
