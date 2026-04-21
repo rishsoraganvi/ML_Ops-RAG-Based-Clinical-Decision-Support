@@ -6,7 +6,7 @@ Targeting research venues: **IEEE ICHI**, **ACL Clinical NLP Workshop**, and **M
 
 ## What It Does
 
-- Answers clinical questions using **3,706 PubMed heart disease abstracts** (English, 2021–2026) via LLaMA-3-8B
+- Answers clinical questions using **3,706 PubMed heart disease abstracts** (English, 2021–2026) via LLaMA-3.2-3B
 - Three retrieval strategies: **dense** (ChromaDB), **BM25** (lexical), **hybrid** (RRF fusion + cross-encoder reranker)
 - Automated evaluation using **RAGAS** — faithfulness, context recall, answer relevance, context precision
 - **PSI-based embedding drift detection** with auto knowledge-base refresh (paper contribution)
@@ -48,11 +48,11 @@ Targeting research venues: **IEEE ICHI**, **ACL Clinical NLP Workshop**, and **M
 |-----------|-------------------|-----------|------------------------------|
 | ChromaDB  | `chromadb:8000`   | 8000      | Vector store                 |
 | MLflow    | `mlflow:5000`     | 5000      | SQLite backend + artifact UI |
-| Ollama    | `ollama:11434`    | 11434     | LLaMA-3-8B on NVIDIA GPU     |
+| Ollama    | `ollama:11434`    | 11434     | LLaMA-3.2-3B on NVIDIA GPU   |
 | FastAPI   | `fastapi:8080`    | 8080      | RAGOps orchestration layer   |
 | Streamlit | —                 | 8501      | Dashboard (run separately)   |
 
-FastAPI `depends_on` all three upstream services with `condition: service_healthy`. Ollama auto-pulls LLaMA-3-8B on first boot via `docker/ollama/pull_model.sh` (idempotent, 120 s start period).
+FastAPI `depends_on` all three upstream services with `condition: service_healthy`. Ollama auto-pulls LLaMA-3.2-3B on first boot via `docker/ollama/pull_model.sh` (idempotent, 120 s start period).
 
 ## Project Structure
 
@@ -120,7 +120,7 @@ ragops/
 | Python | 3.11 | `python --version` (local dev/tests only) |
 | Git | 2.x | `git --version` |
 
-**GPU:** 8+ GB VRAM required for LLaMA-3-8B. For low-VRAM machines, set `OLLAMA_MODEL=llama3:1b` in `.env`.
+**GPU:** ~4 GB VRAM recommended for LLaMA-3.2-3B. For very low-VRAM or CPU-only machines, set `OLLAMA_MODEL=llama3.2:1b` in `.env`.
 
 ### Start All Services
 
@@ -128,7 +128,7 @@ ragops/
 # 1. Configure
 cp env.example .env
 
-# 2. Start (Ollama pulls ~4.7 GB LLaMA-3 on first boot)
+# 2. Start (Ollama pulls ~2.0 GB LLaMA-3.2-3B on first boot)
 docker compose up -d
 # or: make up
 
@@ -380,7 +380,7 @@ make clean          # remove caches and coverage artifacts
 
 | Component | Technology |
 |-----------|-----------|
-| LLM | LLaMA-3-8B via Ollama |
+| LLM | LLaMA-3.2-3B via Ollama |
 | Vector DB | ChromaDB (all-MiniLM-L6-v2, 384-dim) |
 | Retrieval | Dense + BM25 + Hybrid RRF + Cross-encoder reranker (`ms-marco-MiniLM-L-6-v2`) |
 | Evaluation | RAGAS framework |

@@ -7,7 +7,7 @@ sweep produces the source table for Paper TABLE 1 plus the weak labels
 used by `evaluation.explainability.HallucinationClassifier`.
 
 Plan on several hours of wall-clock time on CPU with `llama3.2:1b`.
-GPU + LLaMA-3-8B cuts that materially but still expect a long job —
+GPU + LLaMA-3.2-3B cuts that materially but still expect a long job —
 run it overnight.
 
 ---

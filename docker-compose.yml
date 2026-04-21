@@ -13,7 +13,7 @@ volumes:
     driver: local
   mlflow_data:       # MLflow SQLite DB + artifact store
     driver: local
-  ollama_data:       # Ollama model cache (LLaMA-3-8B weights — ~4.7 GB)
+  ollama_data:       # Ollama model cache (LLaMA-3.2-3B weights — ~2.0 GB)
     driver: local
 
 # ---------------------------------------------------------------------------
@@ -85,13 +85,13 @@ services:
     restart: unless-stopped
     environment:
       OLLAMA_HOST: "0.0.0.0"
-      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:-24h}"   # keep LLaMA-3 warm in VRAM
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:-24h}"   # keep LLaMA-3.2 warm in VRAM
       OLLAMA_NUM_PARALLEL: "${OLLAMA_NUM_PARALLEL:-2}"
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_data:/root/.ollama
-      # Init script that auto-pulls LLaMA-3-8B on first boot
+      # Init script that auto-pulls LLaMA-3.2-3B on first boot
       - ./docker/ollama/pull_model.sh:/pull_model.sh:ro
     networks:
       - ragops_net
@@ -132,7 +132,7 @@ services:
       CHROMA_PORT: "${CHROMA_PORT:-8000}"
       MLFLOW_TRACKING_URI: "http://mlflow:${MLFLOW_PORT:-5000}"
       OLLAMA_BASE_URL: "http://ollama:${OLLAMA_PORT:-11434}"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3:8b}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2:3b}"
 
       # PSI drift detection thresholds (PAPER CONTRIBUTION)
       PSI_WARNING_THRESHOLD: "${PSI_WARNING_THRESHOLD:-0.1}"

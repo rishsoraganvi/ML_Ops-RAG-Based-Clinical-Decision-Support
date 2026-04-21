@@ -15,12 +15,13 @@ Run:
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
 import mlflow
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import requests
+import requests  # type: ignore[import-untyped]
 import streamlit as st
 
 logger = logging.getLogger("ragops.dashboard")
@@ -39,7 +40,7 @@ MLFLOW_EXPERIMENT = "ragops_clinical"
 # ---------------------------------------------------------------------------
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=60)  # type: ignore[misc]
 def _fetch_mlflow_runs(experiment_name: str, max_results: int = 50) -> pd.DataFrame:
     """Pull recent MLflow runs as a DataFrame."""
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -71,8 +72,10 @@ def _fetch_mlflow_runs(experiment_name: str, max_results: int = 50) -> pd.DataFr
 
 
 def _api_post(
-    endpoint: str, json_body: dict | None = None, timeout: float = 120
-) -> dict:
+    endpoint: str,
+    json_body: dict[str, Any] | None = None,
+    timeout: float = 120,
+) -> dict[str, Any]:
     """POST to FastAPI backend with error handling."""
     try:
         resp = requests.post(
@@ -81,7 +84,7 @@ def _api_post(
             timeout=timeout,
         )
         resp.raise_for_status()
-        return resp.json()
+        return cast(dict[str, Any], resp.json())
     except requests.RequestException as exc:
         st.error(f"API call to {endpoint} failed: {exc}")
         return {}
@@ -212,7 +215,9 @@ def _render_xai_panel() -> None:
                 st.error(f"INSTABILITY — consistency score: {score:.4f}")
 
 
-def _render_explanation(exp: dict, source_docs: list[dict]) -> None:
+def _render_explanation(
+    exp: dict[str, Any], source_docs: list[dict[str, Any]]
+) -> None:
     """Render the six-key XAI payload returned by /explain."""
     # ── Hallucination risk ─────────────────────────────────────────────
     risk = float(exp.get("hallucination_risk", 0.0))

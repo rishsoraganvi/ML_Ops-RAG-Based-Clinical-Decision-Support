@@ -18,7 +18,7 @@ logger = logging.getLogger("ragops.refresh_trigger")
 
 
 # PAPER CONTRIBUTION
-def trigger_refresh(drift_report: dict | None = None) -> dict[str, Any]:
+def trigger_refresh(drift_report: dict[str, Any] | None = None) -> dict[str, Any]:
     """Trigger a full knowledge base refresh pipeline.
 
     Pipeline steps:

@@ -11,9 +11,11 @@ rag_pipeline.ingest for document chunking + upsert.
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
 import numpy as np
 from langchain.schema import Document
+from numpy.typing import NDArray
 
 from rag_pipeline.vectorstore import get_or_create_collection
 from rag_pipeline.ingest import ingest_documents
@@ -21,7 +23,7 @@ from rag_pipeline.ingest import ingest_documents
 logger = logging.getLogger("ragops.chroma_interface")
 
 
-def get_embeddings(chunk_size: int = 512) -> np.ndarray:
+def get_embeddings(chunk_size: int = 512) -> NDArray[np.float32]:
     """Return embedding matrix of shape (n_docs, 384) from ChromaDB.
 
     Retrieves all document embeddings from the specified collection.
@@ -46,7 +48,7 @@ def get_embeddings(chunk_size: int = 512) -> np.ndarray:
 
     results = collection.get(
         limit=total,
-        include=["embeddings"],
+        include=cast(Any, ["embeddings"]),
     )
 
     matrix = np.array(results["embeddings"], dtype=np.float32)
@@ -58,7 +60,9 @@ def get_embeddings(chunk_size: int = 512) -> np.ndarray:
     return matrix
 
 
-def incremental_upsert(new_docs: list[dict], chunk_size: int = 512) -> int:
+def incremental_upsert(
+    new_docs: list[dict[str, Any]], chunk_size: int = 512
+) -> int:
     """Add new documents to ChromaDB without re-embedding existing ones.
 
     Converts raw PubMed records to LangChain Documents, then delegates
@@ -101,4 +105,4 @@ def incremental_upsert(new_docs: list[dict], chunk_size: int = 512) -> int:
         len(documents),
         summary["chunks_upserted"],
     )
-    return summary["chunks_upserted"]
+    return int(summary["chunks_upserted"])

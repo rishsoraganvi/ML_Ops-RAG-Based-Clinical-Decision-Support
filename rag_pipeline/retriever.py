@@ -19,7 +19,7 @@ import hashlib
 import logging
 import re
 import time
-from typing import Any, List, Tuple, Optional
+from typing import Any, List, Tuple, Optional, cast
 
 from langchain.schema import BaseRetriever, Document
 from langchain_community.vectorstores import Chroma
@@ -169,11 +169,13 @@ def fetch_corpus(chunk_size: int) -> List[Document]:
 
     results = collection.get(
         limit=total,
-        include=["documents", "metadatas"],
+        include=cast(Any, ["documents", "metadatas"]),
     )
+    documents_raw = results.get("documents") or []
+    metadatas_raw = results.get("metadatas") or []
     docs = [
         Document(page_content=text, metadata=meta)
-        for text, meta in zip(results["documents"], results["metadatas"])
+        for text, meta in zip(documents_raw, metadatas_raw)
     ]
     logger.info("Fetched %d docs from pubmed_%d for BM25 corpus.", total, chunk_size)
     return docs
@@ -227,7 +229,11 @@ def rerank(
     """
     reranker = _get_reranker()
     pairs    = [[question, d.page_content] for d in docs]
-    scores   = reranker.predict(pairs).tolist()
+    raw_scores = reranker.predict(pairs)
+    if hasattr(raw_scores, "tolist"):
+        scores = raw_scores.tolist()
+    else:
+        scores = list(raw_scores)
 
     ranked     = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
     top_docs   = [d for d, _ in ranked[:top_n]]

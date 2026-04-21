@@ -6,9 +6,11 @@ Handles persistent storage, collection naming, and embedding function.
 import logging
 import os
 from functools import lru_cache
-from typing import Optional
+from typing import Any, Optional, cast
 
 import chromadb
+from chromadb.api import ClientAPI
+from chromadb.api.models.Collection import Collection
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 
@@ -45,7 +47,7 @@ def get_embedding_function() -> embedding_functions.SentenceTransformerEmbedding
 # Client factory
 # ---------------------------------------------------------------------------
 
-def get_chroma_client() -> chromadb.HttpClient:
+def get_chroma_client() -> ClientAPI:
     """
     Return an HttpClient connected to the running ChromaDB server.
     ChromaDB must be running at CHROMA_HOST:CHROMA_PORT
@@ -77,8 +79,8 @@ def collection_name(chunk_size: int) -> str:
 
 def get_or_create_collection(
     chunk_size: int,
-    client: Optional[chromadb.HttpClient] = None,
-) -> chromadb.Collection:
+    client: Optional[ClientAPI] = None,
+) -> Collection:
     """
     Get an existing ChromaDB collection, or create it if absent.
 
@@ -93,10 +95,13 @@ def get_or_create_collection(
     name   = collection_name(chunk_size)
     ef     = get_embedding_function()
 
-    collection = client.get_or_create_collection(
-        name=name,
-        embedding_function=ef,
-        metadata={"hnsw:space": "cosine"},   # cosine similarity for dense retrieval
+    collection = cast(
+        Collection,
+        client.get_or_create_collection(
+            name=name,
+            embedding_function=ef,
+            metadata={"hnsw:space": "cosine"},   # cosine similarity for dense retrieval
+        ),
     )
     logger.info(
         "Collection '%s' ready — %d documents currently stored.",
@@ -106,7 +111,7 @@ def get_or_create_collection(
     return collection
 
 
-def delete_collection(chunk_size: int, client: Optional[chromadb.HttpClient] = None) -> None:
+def delete_collection(chunk_size: int, client: Optional[ClientAPI] = None) -> None:
     """Drop a collection entirely (useful for re-ingestion runs)."""
     client = client or get_chroma_client()
     name   = collection_name(chunk_size)
@@ -114,7 +119,9 @@ def delete_collection(chunk_size: int, client: Optional[chromadb.HttpClient] = N
     logger.warning("Deleted collection '%s'.", name)
 
 
-def collection_stats(chunk_size: int, client: Optional[chromadb.HttpClient] = None) -> dict:
+def collection_stats(
+    chunk_size: int, client: Optional[ClientAPI] = None
+) -> dict[str, Any]:
     """Return basic stats for a collection."""
     client     = client or get_chroma_client()
     collection = get_or_create_collection(chunk_size, client)

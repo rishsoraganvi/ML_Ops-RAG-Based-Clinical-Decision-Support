@@ -17,7 +17,7 @@ import hashlib
 import logging
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
@@ -89,7 +89,7 @@ def chunk_documents(
 # Stable ID generation
 # ---------------------------------------------------------------------------
 
-def _chunk_id(text: str, metadata: dict) -> str:
+def _chunk_id(text: str, metadata: dict[str, Any]) -> str:
     """
     Deterministic SHA-256 ID for a chunk so re-ingestion is idempotent.
     Combines text content + source_doc_id + chunk_index.
@@ -106,9 +106,9 @@ def ingest_documents(
     documents: List[Document],
     chunk_size: int = 512,
     batch_size: int = 256,
-    client=None,
+    client: Any = None,
     reset_collection: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """
     Chunk and embed documents into the ChromaDB collection for chunk_size.
 

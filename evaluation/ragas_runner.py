@@ -34,6 +34,7 @@ import logging
 import random
 import time
 from pathlib import Path
+from typing import Any
 
 import mlflow
 import numpy as np
@@ -48,7 +49,7 @@ from ragas import evaluate
 import ragas.metrics as _ragas_metrics_module
 
 
-def _get_metric(name: str):
+def _get_metric(name: str) -> Any:
     """Get metric by name, instantiating if it is a class."""
     import inspect
 
@@ -134,13 +135,14 @@ METRIC_KEYS = [
 
 
 def _build_ragas_llm() -> LangchainLLMWrapper:
-    """Wrap Ollama LLaMA-3-8B as a RAGAS-compatible LLM judge."""
+    """Wrap the configured Ollama model as a RAGAS-compatible LLM judge."""
     llm = Ollama(
         model=OLLAMA_MODEL,
         base_url=OLLAMA_BASE_URL,
         temperature=0,  # deterministic judge
         num_predict=512,
-        timeout=300,  # 5 min timeout — needed for 8B model on CPU
+        # Long timeout — needed for local models on CPU. Set via env var
+        # OLLAMA_TIMEOUT (not a constructor arg in current langchain-ollama).
     )
     return LangchainLLMWrapper(llm)
 
@@ -159,7 +161,7 @@ def _build_ragas_embeddings() -> LangchainEmbeddingsWrapper:
 # ---------------------------------------------------------------------------
 
 
-def _build_ragas_dataset(qa_pairs: list[dict]) -> Dataset:
+def _build_ragas_dataset(qa_pairs: list[dict[str, Any]]) -> Dataset:
     """
     Convert internal qa_pairs format → ragas HuggingFace Dataset.
 
@@ -187,7 +189,7 @@ def _build_ragas_dataset(qa_pairs: list[dict]) -> Dataset:
 # ---------------------------------------------------------------------------
 
 
-def _config_fingerprint(config: dict | None) -> str:
+def _config_fingerprint(config: dict[str, Any] | None) -> str:
     """Stable short hash of the config dict for run naming."""
     blob = json.dumps(config or {}, sort_keys=True).encode()
     return hashlib.sha1(blob).hexdigest()[:8]  # noqa: S324 — non-crypto use
@@ -201,8 +203,8 @@ def _config_fingerprint(config: dict | None) -> str:
 def _run_ragas(
     dataset: Dataset,
     run_tag: str,
-    config: dict | None,
-    extra_tags: dict | None = None,
+    config: dict[str, Any] | None,
+    extra_tags: dict[str, Any] | None = None,
     per_question_path: Path | None = None,
 ) -> dict[str, float]:
     """
@@ -325,8 +327,8 @@ def _run_ragas(
 
 
 def run_eval(
-    qa_pairs: list[dict],
-    config: dict | None = None,
+    qa_pairs: list[dict[str, Any]],
+    config: dict[str, Any] | None = None,
     per_question_path: Path | None = None,
 ) -> dict[str, float]:
     """
@@ -362,8 +364,8 @@ def run_eval(
 
 
 def run_ci_eval(
-    qa_pairs: list[dict] | None = None,
-    config: dict | None = None,
+    qa_pairs: list[dict[str, Any]] | None = None,
+    config: dict[str, Any] | None = None,
 ) -> dict[str, float]:
     """
     Lightweight CI smoke-test — completes in < 90 seconds.
@@ -412,7 +414,7 @@ def run_ci_eval(
 # ---------------------------------------------------------------------------
 
 
-def _ci_stub_pairs() -> list[dict]:
+def _ci_stub_pairs() -> list[dict[str, Any]]:
     """
     5 minimal medical QA pairs for CI smoke-testing.
     NOT for paper results — use the 50-question PubMed benchmark for those.

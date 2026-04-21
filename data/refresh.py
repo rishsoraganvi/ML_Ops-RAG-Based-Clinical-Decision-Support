@@ -1,6 +1,7 @@
 # data/refresh.py
 import argparse
 from datetime import datetime, timedelta
+from typing import Any
 
 from src.fetcher import search_pmids, fetch_records_xml
 from src.parser import parse_xml_to_records, write_jsonl
@@ -25,7 +26,34 @@ def build_date_query(query: str, days_back: int) -> str:
     return f"({query}) AND {date_filter}"
 
 
-def main():
+def fetch_new_records(
+    days_back: int = 7, max_per_query: int = 100
+) -> list[dict[str, Any]]:
+    """Fetch the latest PubMed records across all configured QUERIES.
+
+    Used by mlops.refresh_trigger to pull new documents during KB refresh.
+
+    Args:
+        days_back:     Days of history to pull from PubMed.
+        max_per_query: Max records per query in QUERIES.
+
+    Returns:
+        Combined list of parsed record dicts suitable for incremental_upsert().
+    """
+    all_records: list[dict[str, Any]] = []
+    for query in QUERIES:
+        dated_query = build_date_query(query, days_back)
+        pmids = search_pmids(dated_query, max_per_query)
+        if not pmids:
+            continue
+        xml = fetch_records_xml(pmids)
+        records = parse_xml_to_records(xml)
+        if records:
+            all_records.extend(records)
+    return all_records
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(description="Refresh PubMed data")
     parser.add_argument(
         "--days-back", type=int, default=7,

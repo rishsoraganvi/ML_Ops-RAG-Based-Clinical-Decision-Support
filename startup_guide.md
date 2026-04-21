@@ -10,8 +10,8 @@ This section assumes you have never worked with Docker, Python, or command-line 
 
 ### What You Need Before Starting
 
-1. **A computer with an NVIDIA GPU** (at least 8 GB VRAM)
-   - The system runs a large AI model (LLaMA-3-8B) that requires a GPU
+1. **A computer with an NVIDIA GPU** (at least 4 GB VRAM recommended)
+   - The system runs an AI model (LLaMA-3.2-3B) that benefits from a GPU
    - Check: open a terminal and type `nvidia-smi` — you should see your GPU listed
    - If you see an error, you need to install NVIDIA drivers first
 
@@ -147,7 +147,7 @@ Key env vars you might want to change:
 | Variable | Default | When to change |
 |----------|---------|----------------|
 | `NVIDIA_GPU_COUNT` | 1 | Multi-GPU machine — set to number of GPUs |
-| `OLLAMA_MODEL` | llama3:8b | Use a smaller model for low-VRAM GPUs (e.g., `llama3:1b`) |
+| `OLLAMA_MODEL` | llama3.2:3b | Use a smaller model for low-VRAM GPUs (e.g., `llama3.2:1b`) |
 | `CHROMA_ALLOW_RESET` | false | Set `true` for development (allows collection deletion via API) |
 | `ENVIRONMENT` | production | Set `development` for verbose logging |
 | `FASTAPI_PORT` | 8080 | Port conflict |
@@ -160,7 +160,7 @@ docker compose up -d
 make up
 ```
 
-The stack creates 3 named volumes (`chroma_data`, `mlflow_data`, `ollama_data`) that persist across restarts. Ollama auto-pulls LLaMA-3-8B on first boot via `docker/ollama/pull_model.sh` (idempotent — skips if cached).
+The stack creates 3 named volumes (`chroma_data`, `mlflow_data`, `ollama_data`) that persist across restarts. Ollama auto-pulls LLaMA-3.2-3B on first boot via `docker/ollama/pull_model.sh` (idempotent — skips if cached).
 
 Service dependency: FastAPI waits for all 3 upstream services to be healthy before starting.
 
