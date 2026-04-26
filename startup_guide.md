@@ -200,7 +200,7 @@ Expected response:
 pip install -r docker/fastapi/requirements.txt
 
 # Ingest PubMed abstracts (requires ChromaDB running)
-python -m rag_pipeline.ingest --data_dir ./data/pubmed --chunk_size 512
+python -m rag_pipeline.ingest --data_dir ./data/raw --chunk_size 512
 
 # Verify ingestion
 python -c "from rag_pipeline.vectorstore import collection_stats; print(collection_stats(512))"

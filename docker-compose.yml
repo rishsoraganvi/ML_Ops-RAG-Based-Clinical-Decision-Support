@@ -72,11 +72,11 @@ services:
     networks:
       - ragops_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   # ── 3. Ollama (NVIDIA GPU) ─────────────────────────────────────────────────
   ollama:
@@ -90,7 +90,7 @@ services:
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - ./ollama_data:/root/.ollama
       # Init script that auto-pulls LLaMA-3.2-3B on first boot
       - ./docker/ollama/pull_model.sh:/pull_model.sh:ro
     networks:
@@ -111,11 +111,11 @@ services:
        bash /pull_model.sh &&
        wait"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD-SHELL", "ollama list || exit 1"]
       interval: 30s
-      timeout: 15s
+      timeout: 30s
       retries: 10
-      start_period: 120s   # extra time for model download on cold start
+      start_period: 300s   # extra time for model download on cold start
 
   # ── 4. FastAPI (RAGOps orchestration layer) ────────────────────────────────
   fastapi:
@@ -149,9 +149,13 @@ services:
       - "${FASTAPI_PORT:-8080}:8080"
     volumes:
       # Hot-reload in dev: mount source so edits reflect without rebuild
+      - ./data:/app/data
       - ./src:/app/src:ro
       - ./serving:/app/serving:ro
       - ./mlops:/app/mlops:ro
+      - ./rag_pipeline:/app/rag_pipeline:ro
+      - ./evaluation:/app/evaluation:ro
+      - ./data:/app/data:ro
     networks:
       - ragops_net
     depends_on:

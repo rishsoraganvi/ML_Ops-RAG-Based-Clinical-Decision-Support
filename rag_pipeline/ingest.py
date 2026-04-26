@@ -5,7 +5,7 @@ Supports three chunk sizes (256 / 512 / 1024 tokens) with 10% overlap.
 Designed for PubMed abstracts / medical text; works with any plain-text corpus.
 
 Usage (CLI):
-    python -m rag_pipeline.ingest --data_dir ./data/pubmed --chunk_size 512
+    python -m rag_pipeline.ingest --data_dir ./data/raw --chunk_size 512
 
 Usage (Python):
     from rag_pipeline.ingest import ingest_documents

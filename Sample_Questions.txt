@@ -1,0 +1,36 @@
+Based on the dataset — 3,706 PubMed cardiology/cardiovascular articles — here are 15 RAG evaluation questions grounded in the actual content, spanning different difficulty levels and question types:
+
+🔵 Factual Recall (Direct Retrieval)
+1. In the Vietnamese tertiary hospital study on hypertension-mediated organ damage (HMOD), what percentage of hospitalized patients without established cardiovascular disease had evidence of at least one form of HMOD?
+2. According to the Swedish national register study on ventricular septal defect (VSD), how many VSD patients were included, and what was the mean follow-up duration?
+3. In the comparative study on specialist heart valve clinics (SHVCs), what percentage of non-SHVC patients with prior cardiac surgery had discordant management compared to SHVC patients?
+
+🟡 Inferential / Applied (Requires Reasoning Over Retrieved Content)
+4. Among patients investigated for peripheral atherosclerosis and albuminuria in the Vietnamese HMOD study, which condition had the higher diagnostic yield, and by how much?
+5. In the Swedish VSD mortality study, how does the hazard ratio for death in patients with repaired VSDs (before age 18) compare to those with unrepaired VSDs in adults over 18?
+6. What does the heart valve clinic study suggest about care gaps when patients with heart valve disease are managed outside specialist settings — specifically regarding endocarditis prevention advice?
+
+🟠 Synthesis / Cross-Document (Multi-Hop)
+7. Across studies in this dataset, what common theme emerges about the relationship between standardized or specialized care pathways and patient outcomes in cardiovascular disease?
+8. Based on the literature in this dataset, what are the key biomarkers or diagnostic tools discussed for early detection of silent myocardial or organ damage in patients with cardiovascular risk factors?
+9. How do studies in this dataset characterize the role of cardiac MRI in diagnosing conditions such as myocarditis, and what parameters are highlighted?
+
+🔴 Temporal / Comparative (Tests Recency & Specificity)
+10. Which study in the dataset involves the most recent data collection period, and what cardiovascular condition does it address?
+11. Among studies examining heart failure, what therapeutic interventions (pharmacological or device-based) are discussed, and which appears most frequently referenced?
+12. How does the dataset's literature describe the management of ventricular arrhythmias in heart failure patients — what role do catheter ablation and ICDs play?
+
+🟣 Negative / Out-of-Scope (Tests Hallucination Resistance)
+13. Does the dataset contain any study evaluating the use of CRISPR gene editing as a treatment for congenital heart disease? If not, what is the closest topic covered?
+14. Is there evidence in the dataset about the efficacy of COVID-19 vaccines specifically in patients with pre-existing arrhythmias? What related COVID-19 topics are covered instead?
+
+⚙️ Metadata / Structural (Tests Index Quality)
+15. How many unique MeSH terms related to "Heart Failure" appear across the dataset, and which study type (retrospective, prospective, randomized) is most commonly associated with those articles?
+
+Tips for using these:
+
+Questions 1–3 test precise retrieval — good for checking chunking and embedding quality.
+Questions 4–6 test reasoning over retrieved context — good for evaluating your LLM's generation step.
+Questions 7–9 test multi-document synthesis — stress-tests retrieval recall and ranking.
+Questions 13–14 are adversarial — your RAG should say "not found" rather than hallucinate.
+Question 15 tests metadata filtering, useful if your RAG supports structured queries.

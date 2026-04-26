@@ -8,13 +8,13 @@
 set -euo pipefail
 
 MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
-MAX_RETRIES=10
+MAX_RETRIES=60
 RETRY_DELAY=10
 
 echo "[ragops/ollama] Checking for model: ${MODEL}"
 
 retry_count=0
-until curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; do
+until ollama list > /dev/null 2>&1; do
     retry_count=$((retry_count + 1))
     if [ "${retry_count}" -ge "${MAX_RETRIES}" ]; then
         echo "[ragops/ollama] ERROR: Ollama server did not become ready after ${MAX_RETRIES} retries"

@@ -155,7 +155,7 @@ Expected `/health` response:
 
 ```bash
 pip install -r docker/fastapi/requirements.txt
-python -m rag_pipeline.ingest --data_dir ./data/pubmed --chunk_size 512
+python -m rag_pipeline.ingest --data_dir ./data/raw --chunk_size 512
 
 # Verify
 python -c "from rag_pipeline.vectorstore import collection_stats; print(collection_stats(512))"

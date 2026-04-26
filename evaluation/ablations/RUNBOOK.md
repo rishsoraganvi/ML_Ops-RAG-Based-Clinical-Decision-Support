@@ -34,7 +34,7 @@ python -c "from data.ingest import get_embeddings; print(get_embeddings().shape)
 If the collection is empty, run ingestion first:
 
 ```bash
-python -m rag_pipeline.ingest --data_dir ./data/pubmed --chunk_size 512
+python -m rag_pipeline.ingest --data_dir ./data/raw --chunk_size 512
 ```
 
 ## 2. Dry-run the grid
