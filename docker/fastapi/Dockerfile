@@ -27,6 +27,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY --chown=ragops:ragops serving/ ./serving/
 COPY --chown=ragops:ragops src/ ./src/
 COPY --chown=ragops:ragops mlops/ ./mlops/
+COPY --chown=ragops:ragops rag_pipeline/ ./rag_pipeline/
+COPY --chown=ragops:ragops evaluation/ ./evaluation/
+COPY --chown=ragops:ragops data/ ./data/
 
 USER ragops
 

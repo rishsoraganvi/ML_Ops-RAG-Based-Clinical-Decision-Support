@@ -13,6 +13,9 @@ dist/
 build/
 eggs/
 *.whl
+pip-wheel-metadata/
+.tox/
+.nox/
 
 # ── Virtual environments ─────────────────────────────────────────────────────
 .venv/
@@ -52,6 +55,14 @@ desktop.ini
 .env.*.local
 *.pem
 *.key
+*.crt
+id_ed25519
+id_ed25519.pub
+id_rsa
+id_rsa.pub
+*.p12
+*.pfx
+secrets/
 
 # ── Docker ───────────────────────────────────────────────────────────────────
 docker-compose.override.yml
@@ -59,6 +70,10 @@ docker-compose.override.yml
 # ── MLflow local artifacts ───────────────────────────────────────────────────
 mlruns/
 mlartifacts/
+mlflow_data/
+
+# ── Ollama bind-mount (model weights ~2GB + SSH keys — never commit) ─────────
+ollama_data/
 
 # ── DVC ──────────────────────────────────────────────────────────────────────
 # Track .dvc config but not cached data
@@ -67,10 +82,22 @@ mlartifacts/
 .dvc/cache/
 .dvc/tmp/
 
+# ── Raw PubMed dumps (3,706 files, ~16 MB — managed via DVC, not git) ───────
+/data/raw/
+
 # ── Data artifacts ───────────────────────────────────────────────────────────
 data/chroma_store/
 data/quality_report.html
 ablation_outputs/
+eval_outputs/
+benchmark_results/
+*.ragas.json
+
+# ── Local run/debug artifacts ────────────────────────────────────────────────
+debug_logs/
+*.pid
+.cache/
+.tmp/
 
 # ── Claude Code ──────────────────────────────────────────────────────────────
 .claude/
