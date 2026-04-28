@@ -84,8 +84,12 @@ async def _ping(url: str, timeout: float = 3.0) -> str:
         async with httpx.AsyncClient() as client:
             r = await client.get(url, timeout=timeout)
         return "ok" if r.status_code == 200 else f"http_{r.status_code}"
+    except httpx.ConnectError as exc:
+        return f"unreachable ({url}): {exc}"
+    except httpx.TimeoutException as exc:
+        return f"timeout after {timeout}s ({url}): {exc}"
     except Exception as exc:  # noqa: BLE001
-        return f"error: {exc}"
+        return f"error[{type(exc).__name__}] ({url}): {exc}"
 
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
@@ -159,11 +163,49 @@ async def query_endpoint(req: QueryRequest) -> QueryResponse:
             req.config,
             mlflow_run=req.log_to_mlflow,
         )
+    except (ConnectionError, httpx.ConnectError) as exc:
+        logger.error("RAG query upstream unreachable", exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"RAG query failed [{type(exc).__name__}]: cannot reach an upstream "
+                f"dependency (ChromaDB at {settings.chroma_host}:{settings.chroma_port} "
+                f"or Ollama at {settings.ollama_base_url}). Underlying error: {exc}. "
+                "Verify dependency health via GET /health and `docker compose ps`."
+            ),
+        ) from exc
+    except (TimeoutError, httpx.TimeoutException) as exc:
+        logger.error("RAG query timed out", exc_info=True)
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"RAG query failed [{type(exc).__name__}]: upstream timed out. "
+                f"Underlying error: {exc}. The Ollama model may be cold-loading from disk; "
+                "first request after restart can exceed 60s. Check OLLAMA_KEEP_ALIVE and "
+                "retry, or inspect `docker compose logs ollama`."
+            ),
+        ) from exc
+    except (KeyError, ValueError) as exc:
+        logger.error(
+            "RAG query received invalid config or response shape", exc_info=True
+        )
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"RAG query failed [{type(exc).__name__}]: {exc}. "
+                "Check the `config` payload (retriever_type ∈ {dense,bm25,hybrid}, "
+                "chunk_size ∈ {256,512,1024}, k ∈ [1,10]) and that the requested "
+                "ChromaDB collection (`pubmed_<chunk_size>`) has been ingested."
+            ),
+        ) from exc
     except Exception as exc:
-        logger.error("RAG query failed: %s", exc)
+        logger.error("RAG query failed unexpectedly", exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail=f"RAG pipeline unavailable: {exc}",
+            detail=(
+                f"RAG query failed [{type(exc).__name__}]: {exc}. "
+                "Inspect FastAPI logs (`docker compose logs fastapi`) for the full traceback."
+            ),
         ) from exc
 
     return QueryResponse(
@@ -263,11 +305,46 @@ async def evaluate_endpoint(req: EvalRequest) -> EvalResponse:
     """Run RAGAS evaluation with optional quality gate."""
     try:
         result = await asyncio.to_thread(_run_eval_sync, req)
-    except Exception as exc:
-        logger.error("Evaluation failed: %s", exc)
+    except ValueError as exc:
+        logger.error("Evaluation rejected invalid input", exc_info=True)
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Evaluation failed [ValueError]: {exc}. "
+                "For `mode=full` you must supply `qa_pairs`; for `mode=ci` an empty list "
+                "falls back to the 5-question stub. Verify each QA pair has "
+                "`question`, `answer`, `contexts`, `ground_truth`."
+            ),
+        ) from exc
+    except (ConnectionError, httpx.ConnectError) as exc:
+        logger.error("Evaluation upstream unreachable", exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"Evaluation failed [{type(exc).__name__}]: cannot reach MLflow at "
+                f"{settings.mlflow_tracking_uri} for quality-gate logging. Underlying error: "
+                f"{exc}. Verify the mlflow service via GET /health and `docker compose ps mlflow`."
+            ),
+        ) from exc
+    except ImportError as exc:
+        logger.error("Evaluation missing dependency", exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail=f"Evaluation unavailable: {exc}",
+            detail=(
+                f"Evaluation failed [ImportError]: {exc}. The RAGAS / datasets stack "
+                "is missing or broken in the FastAPI image. Rebuild via "
+                "`docker compose build fastapi` after confirming "
+                "docker/fastapi/requirements.txt pins ragas + datasets."
+            ),
+        ) from exc
+    except Exception as exc:
+        logger.error("Evaluation failed unexpectedly", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Evaluation failed [{type(exc).__name__}]: {exc}. "
+                "Inspect FastAPI logs (`docker compose logs fastapi`) for the full traceback."
+            ),
         ) from exc
 
     return EvalResponse(**result)
@@ -299,12 +376,67 @@ async def drift_check() -> DriftResponse:
         psi_score = await asyncio.to_thread(compute_psi, embeddings)
         report = alert(psi_score)
     except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if "baseline" in str(exc).lower():
+            logger.error("Drift check missing baseline", exc_info=True)
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Drift check failed [RuntimeError]: {exc} "
+                    "The PSI baseline snapshot has not been captured. Run "
+                    "`make baseline` (or `python scripts/run_baseline_eval.py`) "
+                    "after document ingestion to populate the baseline before "
+                    "invoking /drift/check."
+                ),
+            ) from exc
+        logger.warning("Drift check guardrail triggered: %s", exc)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Drift check rejected by guardrail [RuntimeError]: {exc}. "
+                "The PSI detector refused to run \u2014 typical causes are mismatched "
+                "embedding dimensionality between baseline and current snapshot, or "
+                "an empty current sample."
+            ),
+        ) from exc
+    except FileNotFoundError as exc:
+        logger.error("Drift check missing baseline file", exc_info=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Drift check failed [FileNotFoundError]: {exc}. The PSI baseline "
+                "file is missing on disk. Run `make baseline` (or "
+                "`python scripts/run_baseline_eval.py`) to populate "
+                "`baselines/embedding_baseline.npy` before invoking /drift/check."
+            ),
+        ) from exc
+    except (ConnectionError, httpx.ConnectError) as exc:
+        logger.error("Drift check cannot reach ChromaDB", exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"Drift check failed [{type(exc).__name__}]: cannot reach ChromaDB at "
+                f"{settings.chroma_host}:{settings.chroma_port} to fetch current embeddings. "
+                f"Underlying error: {exc}. Verify the chromadb service via GET /health."
+            ),
+        ) from exc
+    except ValueError as exc:
+        logger.error("Drift check received malformed embeddings", exc_info=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Drift check failed [ValueError]: {exc}. The current embeddings could "
+                "not be aligned with the baseline \u2014 check that the embedding model "
+                "(MiniLM-L6-v2 \u2192 384 dims) and the baseline file agree on shape."
+            ),
+        ) from exc
     except Exception as exc:
-        logger.error("Drift check failed: %s", exc)
+        logger.error("Drift check failed unexpectedly", exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail=f"Drift check unavailable: {exc}",
+            detail=(
+                f"Drift check failed [{type(exc).__name__}]: {exc}. "
+                "Inspect FastAPI logs (`docker compose logs fastapi`) for the full traceback."
+            ),
         ) from exc
 
     return DriftResponse(**report)
@@ -329,6 +461,56 @@ class XAIResponse(BaseModel):
     thresholds: dict[str, float]
 
 
+def _replay_xai_benchmark() -> list:
+    """Run the RAG chain on the first N benchmark questions and return their
+    explanation vectors. Mirrors `scripts/run_baseline_eval.py::_capture_xai`
+    so /xai/check can self-serve when the caller did not supply vectors.
+    """
+    import json
+    from pathlib import Path
+
+    from evaluation.explainability import explain
+    from rag_pipeline.chain import query as rag_query
+
+    qa_file = (
+        Path(__file__).resolve().parents[1]
+        / "evaluation"
+        / "benchmarks"
+        / "qa_pairs.json"
+    )
+    if not qa_file.exists():
+        raise FileNotFoundError(
+            f"XAI benchmark file not found at {qa_file}. "
+            "Cannot generate replay vectors automatically."
+        )
+
+    qa_pairs = json.loads(qa_file.read_text(encoding="utf-8"))
+    subset = qa_pairs[: settings.xai_benchmark_questions]
+
+    vectors: list = []
+    for item in subset:
+        try:
+            result = rag_query(item["question"])
+            exp = explain(
+                item["question"],
+                result["source_docs"],
+                result["retrieval_scores"],
+                answer=result["answer"],
+            )
+            vectors.append(exp["explanation_vector"])
+        except Exception as exc:
+            logger.warning(
+                "XAI replay skipped question %r: %s", item.get("question"), exc
+            )
+
+    if not vectors:
+        raise RuntimeError(
+            "XAI replay produced zero explanation vectors. "
+            "All benchmark questions failed against the live RAG pipeline."
+        )
+    return vectors
+
+
 @app.post("/xai/check", response_model=XAIResponse, tags=["xai"])
 async def xai_check(req: XAIRequest) -> XAIResponse:
     """Check XAI explanation consistency against baseline. # XAI CONTRIBUTION"""
@@ -337,17 +519,63 @@ async def xai_check(req: XAIRequest) -> XAIResponse:
     from mlops.explanation_monitor import compute_consistency
 
     try:
-        vectors = (
-            [np.array(v) for v in req.current_vectors] if req.current_vectors else None
-        )
+        if req.current_vectors:
+            vectors: list = [np.array(v) for v in req.current_vectors]
+        else:
+            logger.info(
+                "/xai/check called without current_vectors \u2014 replaying "
+                "the XAI benchmark to generate them."
+            )
+            vectors = await asyncio.to_thread(_replay_xai_benchmark)
         score = await asyncio.to_thread(compute_consistency, vectors)
     except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if "baseline" in str(exc).lower():
+            logger.error("XAI check missing baseline", exc_info=True)
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"XAI check failed [RuntimeError]: {exc} "
+                    "Run `python scripts/run_baseline_eval.py` "
+                    "(or its `--skip-eval --skip-psi` variant) to populate "
+                    "`baselines/xai_baseline.npy` before invoking /xai/check."
+                ),
+            ) from exc
+        logger.warning("XAI consistency guardrail triggered: %s", exc)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"XAI consistency check rejected by guardrail [RuntimeError]: {exc}. "
+                "Common causes: explanation-vector dimensionality differs from baseline, "
+                "or the replay benchmark produced zero usable vectors."
+            ),
+        ) from exc
+    except FileNotFoundError as exc:
+        logger.error("XAI check missing baseline", exc_info=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"XAI check failed [FileNotFoundError]: {exc}. The XAI explanation "
+                "baseline has not been captured. Run `python scripts/run_baseline_eval.py` "
+                "to populate `baselines/xai_baseline.npy` before invoking /xai/check."
+            ),
+        ) from exc
+    except ValueError as exc:
+        logger.error("XAI check received malformed vectors", exc_info=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"XAI check failed [ValueError]: {exc}. Ensure each entry in "
+                "`current_vectors` has the same length as the baseline explanation vector."
+            ),
+        ) from exc
     except Exception as exc:
-        logger.error("XAI check failed: %s", exc)
+        logger.error("XAI check failed unexpectedly", exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail=f"XAI check unavailable: {exc}",
+            detail=(
+                f"XAI check failed [{type(exc).__name__}]: {exc}. "
+                "Inspect FastAPI logs (`docker compose logs fastapi`) for the full traceback."
+            ),
         ) from exc
 
     if score >= settings.xai_warning_threshold:
@@ -409,15 +637,26 @@ class ExplainResponse(BaseModel):
 async def explain_endpoint(req: ExplainRequest) -> ExplainResponse:
     """Run the unified XAI pipeline on a prior /query result. # XAI CONTRIBUTION"""
     if not req.source_docs:
-        raise HTTPException(status_code=400, detail="source_docs must be non-empty")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Explain failed [ValidationError]: `source_docs` must be non-empty. "
+                "Pass the `source_docs` array returned by a prior /query call."
+            ),
+        )
 
     try:
         from evaluation.explainability import explain as xai_explain
     except ImportError as exc:
-        logger.error("XAI imports failed: %s", exc)
+        logger.error("XAI imports failed", exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail=f"Explainability unavailable: {exc}",
+            detail=(
+                f"Explainability unavailable [ImportError]: {exc}. The XAI stack "
+                "(shap / transformers / torch) is missing or broken in the FastAPI image. "
+                "Confirm these packages are pinned in docker/fastapi/requirements.txt and "
+                "rebuild via `docker compose build fastapi`."
+            ),
         ) from exc
 
     try:
@@ -428,11 +667,36 @@ async def explain_endpoint(req: ExplainRequest) -> ExplainResponse:
             req.retrieval_scores,
             req.answer,
         )
-    except Exception as exc:
-        logger.error("Explain pipeline failed: %s", exc)
+    except ValueError as exc:
+        logger.error("Explain pipeline received malformed input", exc_info=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Explain failed [ValueError]: {exc}. Verify each source_doc has "
+                "non-empty `page_content` and that `retrieval_scores` length matches "
+                "`source_docs`."
+            ),
+        ) from exc
+    except RuntimeError as exc:
+        logger.error(
+            "Explain pipeline runtime error (likely model load)", exc_info=True
+        )
         raise HTTPException(
             status_code=503,
-            detail=f"Explainability unavailable: {exc}",
+            detail=(
+                f"Explainability unavailable [RuntimeError]: {exc}. The HuggingFace "
+                "attention model failed to load \u2014 check the FastAPI container has GPU "
+                "access (or fallback to CPU) and that the transformers cache is writable."
+            ),
+        ) from exc
+    except Exception as exc:
+        logger.error("Explain pipeline failed unexpectedly", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Explainability unavailable [{type(exc).__name__}]: {exc}. "
+                "Inspect FastAPI logs (`docker compose logs fastapi`) for the full traceback."
+            ),
         ) from exc
 
     # Convert numpy array → list for JSON serialization.

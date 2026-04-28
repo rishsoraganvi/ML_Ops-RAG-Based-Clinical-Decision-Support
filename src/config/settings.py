@@ -13,7 +13,7 @@ Import pattern (use everywhere, never re-read os.environ directly):
 
 import logging
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("ragops.config")
 
@@ -57,9 +57,11 @@ class RAGOpsSettings(BaseSettings):
     log_level: str = "INFO"
     environment: str = "production"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 
 # Module-level singleton — import this everywhere

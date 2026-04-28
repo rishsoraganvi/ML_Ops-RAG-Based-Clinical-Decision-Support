@@ -76,17 +76,55 @@ def _api_post(
     json_body: dict[str, Any] | None = None,
     timeout: float = 120,
 ) -> dict[str, Any]:
-    """POST to FastAPI backend with error handling."""
+    """POST to FastAPI backend with error handling.
+
+    On failure, surface a descriptive `st.error` that distinguishes:
+      * connection refused (FastAPI itself is down),
+      * client/server timeouts,
+      * HTTP 4xx/5xx with the FastAPI `detail` body parsed out.
+    """
+    url = f"{API_BASE}{endpoint}"
     try:
-        resp = requests.post(
-            f"{API_BASE}{endpoint}",
-            json=json_body or {},
-            timeout=timeout,
-        )
+        resp = requests.post(url, json=json_body or {}, timeout=timeout)
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
+    except requests.ConnectionError as exc:
+        logger.error("Dashboard could not reach FastAPI at %s", url, exc_info=True)
+        st.error(
+            f"{endpoint} failed [ConnectionError]: cannot reach FastAPI at {API_BASE}. "
+            f"Underlying error: {exc}. Verify the fastapi service is running "
+            "(`docker compose ps fastapi`) and accessible on the host port."
+        )
+        return {}
+    except requests.Timeout as exc:
+        logger.error(
+            "Dashboard request to %s timed out after %ss", url, timeout, exc_info=True
+        )
+        st.error(
+            f"{endpoint} failed [Timeout]: no response after {timeout}s. "
+            f"Underlying error: {exc}. The Ollama model may be cold-loading "
+            "(first request can exceed 60s) or the upstream RAG step is stuck \u2014 "
+            "inspect `docker compose logs fastapi`."
+        )
+        return {}
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else "unknown"
+        try:
+            body = exc.response.json() if exc.response is not None else {}
+            detail = body.get("detail", body) if isinstance(body, dict) else body
+        except ValueError:
+            detail = exc.response.text if exc.response is not None else str(exc)
+        logger.error(
+            "Dashboard got HTTP %s from %s: %s", status, url, detail, exc_info=True
+        )
+        st.error(f"{endpoint} failed (HTTP {status}): {detail}")
+        return {}
     except requests.RequestException as exc:
-        st.error(f"API call to {endpoint} failed: {exc}")
+        logger.error("Dashboard request to %s failed unexpectedly", url, exc_info=True)
+        st.error(
+            f"{endpoint} failed [{type(exc).__name__}]: {exc}. "
+            "Inspect dashboard and FastAPI logs for the full traceback."
+        )
         return {}
 
 
@@ -215,9 +253,7 @@ def _render_xai_panel() -> None:
                 st.error(f"INSTABILITY — consistency score: {score:.4f}")
 
 
-def _render_explanation(
-    exp: dict[str, Any], source_docs: list[dict[str, Any]]
-) -> None:
+def _render_explanation(exp: dict[str, Any], source_docs: list[dict[str, Any]]) -> None:
     """Render the six-key XAI payload returned by /explain."""
     # ── Hallucination risk ─────────────────────────────────────────────
     risk = float(exp.get("hallucination_risk", 0.0))
@@ -306,7 +342,11 @@ def _render_ragas_panel() -> None:
     df = _fetch_mlflow_runs(MLFLOW_EXPERIMENT)
 
     if df.empty:
-        st.warning("No MLflow runs found. Run an evaluation first.")
+        st.warning(
+            f"No MLflow runs found under experiment `{MLFLOW_EXPERIMENT}` at "
+            f"{MLFLOW_TRACKING_URI}. Run `make eval-ci` (or POST /evaluate) to create "
+            "the first run, then refresh this panel."
+        )
         return
 
     ragas_metrics = [
@@ -318,7 +358,12 @@ def _render_ragas_panel() -> None:
     available = [m for m in ragas_metrics if m in df.columns]
 
     if not available:
-        st.warning("No RAGAS metrics found in MLflow runs.")
+        st.warning(
+            f"MLflow runs exist under `{MLFLOW_EXPERIMENT}` but none expose RAGAS "
+            "metrics (faithfulness / context_recall / answer_relevancy / "
+            "context_precision). Run `make eval-ci` so RAGOpsTracker logs the "
+            "RAGAS metric set, or verify the experiment name."
+        )
         return
 
     for metric in available:
@@ -391,7 +436,11 @@ def _render_comparison_panel() -> None:
     df = _fetch_mlflow_runs(MLFLOW_EXPERIMENT)
 
     if df.empty:
-        st.warning("No MLflow runs found.")
+        st.warning(
+            f"No MLflow runs found under experiment `{MLFLOW_EXPERIMENT}` at "
+            f"{MLFLOW_TRACKING_URI}. Run `make eval-ci` to create at least two runs "
+            "before using the comparison view."
+        )
         return
 
     run_ids = df["run_id"].tolist()
@@ -408,8 +457,25 @@ def _render_comparison_panel() -> None:
         with st.spinner("Comparing runs..."):
             try:
                 result = compare_runs(run_a, run_b)
+            except (
+                FileNotFoundError,
+                KeyError,
+                mlflow.exceptions.MlflowException,
+            ) as exc:
+                logger.error("Run comparison failed to locate run", exc_info=True)
+                st.error(
+                    f"Comparison failed [{type(exc).__name__}]: one of the selected "
+                    f"runs ({run_a}, {run_b}) could not be loaded from MLflow. "
+                    f"Underlying error: {exc}. Confirm both runs exist under the "
+                    f"`{MLFLOW_EXPERIMENT}` experiment at {MLFLOW_TRACKING_URI}."
+                )
+                return
             except Exception as exc:
-                st.error(f"Comparison failed: {exc}")
+                logger.error("Run comparison failed unexpectedly", exc_info=True)
+                st.error(
+                    f"Comparison failed [{type(exc).__name__}]: {exc}. "
+                    "Check the dashboard logs for the full traceback."
+                )
                 return
 
         if result:
