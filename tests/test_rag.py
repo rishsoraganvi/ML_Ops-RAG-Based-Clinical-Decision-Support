@@ -133,7 +133,11 @@ class TestQuery:
 
         out = chain_mod.query(
             "What is first-line for MI?",
-            config={"retriever_type": "dense", "chunk_size": 256, "preprocess_query": False},
+            config={
+                "retriever_type": "dense",
+                "chunk_size": 256,
+                "preprocess_query": False,
+            },
         )
 
         expected = {
@@ -167,7 +171,11 @@ class TestQuery:
 
         chain_mod.query(
             "treatment for MI?",
-            config={"retriever_type": "dense", "chunk_size": 256, "preprocess_query": True},
+            config={
+                "retriever_type": "dense",
+                "chunk_size": 256,
+                "preprocess_query": True,
+            },
         )
         assert "myocardial infarction" in captured["question"]
 
@@ -187,7 +195,11 @@ class TestQuery:
 
         chain_mod.query(
             "treatment for MI?",
-            config={"retriever_type": "dense", "chunk_size": 256, "preprocess_query": False},
+            config={
+                "retriever_type": "dense",
+                "chunk_size": 256,
+                "preprocess_query": False,
+            },
         )
         assert captured["question"] == "treatment for MI?"
 

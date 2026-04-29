@@ -24,32 +24,33 @@ logger = logging.getLogger(__name__)
 # Key = short form (matched case-insensitively on word boundaries).
 # Value = canonical long form appended in parentheses.
 MEDICAL_ABBREVIATIONS: Dict[str, str] = {
-    "MI":    "myocardial infarction",
-    "HF":    "heart failure",
-    "HTN":   "hypertension",
-    "T2DM":  "type 2 diabetes mellitus",
-    "T1DM":  "type 1 diabetes mellitus",
-    "CVD":   "cardiovascular disease",
-    "AFib":  "atrial fibrillation",
-    "CAD":   "coronary artery disease",
-    "COPD":  "chronic obstructive pulmonary disease",
-    "CKD":   "chronic kidney disease",
+    "MI": "myocardial infarction",
+    "HF": "heart failure",
+    "HTN": "hypertension",
+    "T2DM": "type 2 diabetes mellitus",
+    "T1DM": "type 1 diabetes mellitus",
+    "CVD": "cardiovascular disease",
+    "AFib": "atrial fibrillation",
+    "CAD": "coronary artery disease",
+    "COPD": "chronic obstructive pulmonary disease",
+    "CKD": "chronic kidney disease",
 }
 
 # Small curated MeSH-style synonym bank. Off by default — opt in via the
 # `expand_mesh=True` flag. Keys are lowercased canonical terms.
 MESH_SYNONYMS: Dict[str, List[str]] = {
-    "diabetes":      ["diabetes mellitus", "hyperglycemia"],
-    "hypertension":  ["high blood pressure"],
+    "diabetes": ["diabetes mellitus", "hyperglycemia"],
+    "hypertension": ["high blood pressure"],
     "heart failure": ["cardiac failure", "congestive heart failure"],
-    "cancer":        ["neoplasm", "malignancy"],
-    "stroke":        ["cerebrovascular accident"],
+    "cancer": ["neoplasm", "malignancy"],
+    "stroke": ["cerebrovascular accident"],
 }
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def preprocess_query(
     question: str,

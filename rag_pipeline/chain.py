@@ -20,7 +20,6 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
 from .retriever import get_retriever, retrieve_with_scores, DEFAULT_K
-from .vectorstore import VALID_CHUNK_SIZES
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +27,9 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-OLLAMA_BASE_URL  = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL     = os.getenv("OLLAMA_MODEL", "llama3.2:3b")  # ollama pull llama3.2:3b
-OLLAMA_TEMP      = 0.0                    # deterministic for ablations
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")  # ollama pull llama3.2:3b
+OLLAMA_TEMP = 0.0  # deterministic for ablations
 
 CLINICAL_PROMPT = PromptTemplate(
     input_variables=["context", "question"],
@@ -50,18 +49,19 @@ CLINICAL_PROMPT = PromptTemplate(
 # ---------------------------------------------------------------------------
 
 DEFAULT_CONFIG = {
-    "retriever_type":    "dense",   # dense | bm25 | hybrid
-    "chunk_size":        256,       # 256 | 512 | 1024   ← ABLATION EXPERIMENT
-    "k":                 DEFAULT_K,
-    "reranker":          False,     # True only for hybrid (Week 2)
-    "dense_weight":      0.6,       # hybrid RRF weight — spec: 0.6 dense + 0.4 BM25
-    "preprocess_query":  True,      # expand medical abbreviations before retrieval
+    "retriever_type": "dense",  # dense | bm25 | hybrid
+    "chunk_size": 256,  # 256 | 512 | 1024   ← ABLATION EXPERIMENT
+    "k": DEFAULT_K,
+    "reranker": False,  # True only for hybrid (Week 2)
+    "dense_weight": 0.6,  # hybrid RRF weight — spec: 0.6 dense + 0.4 BM25
+    "preprocess_query": True,  # expand medical abbreviations before retrieval
 }
 
 
 # ---------------------------------------------------------------------------
 # LLM factory
 # ---------------------------------------------------------------------------
+
 
 def _get_llm() -> ChatOllama:
     return ChatOllama(
@@ -74,6 +74,7 @@ def _get_llm() -> ChatOllama:
 # ---------------------------------------------------------------------------
 # Chain builder
 # ---------------------------------------------------------------------------
+
 
 def build_chain(config: dict) -> RetrievalQA:
     """
@@ -112,6 +113,7 @@ def build_chain(config: dict) -> RetrievalQA:
 # Primary public API
 # ---------------------------------------------------------------------------
 
+
 def query(
     question: str,
     config: Optional[dict] = None,
@@ -142,6 +144,7 @@ def query(
     # ── 0. Optional medical query preprocessing ──────────────────────────
     if cfg.get("preprocess_query", True):
         from .query_processor import preprocess_query
+
         question_processed = preprocess_query(question)
     else:
         question_processed = question
@@ -159,30 +162,29 @@ def query(
     context = "\n\n".join(d.page_content for d in docs)
 
     # ── 3. LLM call ───────────────────────────────────────────────────────
-    llm    = _get_llm()
-    t_llm  = time.perf_counter()
+    llm = _get_llm()
+    t_llm = time.perf_counter()
 
     prompt_text = CLINICAL_PROMPT.format(context=context, question=question_processed)
-    llm_resp    = llm.invoke(prompt_text)
-    answer      = llm_resp.content.strip()
+    llm_resp = llm.invoke(prompt_text)
+    answer = llm_resp.content.strip()
 
-    llm_ms      = round((time.perf_counter() - t_llm) * 1000, 2)
-    total_ms    = round(retrieval_ms + llm_ms, 2)
+    llm_ms = round((time.perf_counter() - t_llm) * 1000, 2)
+    total_ms = round(retrieval_ms + llm_ms, 2)
 
     # ── 4. Package source docs ────────────────────────────────────────────
     source_docs = [
-        {"page_content": d.page_content, "metadata": d.metadata}
-        for d in docs
+        {"page_content": d.page_content, "metadata": d.metadata} for d in docs
     ]
 
     result = {
-        "answer":               answer,
-        "source_docs":          source_docs,
+        "answer": answer,
+        "source_docs": source_docs,
         "retrieval_latency_ms": retrieval_ms,
-        "llm_latency_ms":       llm_ms,
-        "total_latency_ms":     total_ms,
-        "retrieval_scores":     scores,        # List[float] — XAI hook
-        "config":               cfg,
+        "llm_latency_ms": llm_ms,
+        "total_latency_ms": total_ms,
+        "retrieval_scores": scores,  # List[float] — XAI hook
+        "config": cfg,
     }
 
     # ── 5. Optional MLflow logging ─────────────────────────────────────────
@@ -204,6 +206,7 @@ def query(
 # ---------------------------------------------------------------------------
 # XAI support — token-level BM25 attribution
 # ---------------------------------------------------------------------------
+
 
 def bm25_term_scores(query_text: str, doc: str) -> dict:
     """
@@ -228,11 +231,12 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
     # Tokenise (lowercase, alpha only)
     def tokenise(text: str):
         import re
+
         return re.findall(r"[a-z]+", text.lower())
 
     query_terms = set(tokenise(query_text))
-    doc_tokens  = tokenise(doc)
-    doc_len     = len(doc_tokens)
+    doc_tokens = tokenise(doc)
+    doc_len = len(doc_tokens)
 
     if doc_len == 0:
         return {}
@@ -248,7 +252,7 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
         tf = tf_counts.get(term, 0)
         if tf == 0:
             continue
-        tf_norm   = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
+        tf_norm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
         idf_approx = math.log(1.0 + 1.0 / (tf / doc_len))
         scores[term] = round(tf_norm * idf_approx, 6)
 
@@ -258,6 +262,7 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
 # ---------------------------------------------------------------------------
 # MLflow helper
 # ---------------------------------------------------------------------------
+
 
 def _log_to_mlflow(
     question: str,
@@ -291,13 +296,13 @@ def _log_to_mlflow(
 # ABLATION EXPERIMENT
 ABLATION_CONFIGS = [
     # dense — reranker OFF                              # ABLATION EXPERIMENT
-    {"retriever_type": "dense",  "chunk_size": 256, "reranker": False},
-    {"retriever_type": "dense",  "chunk_size": 512, "reranker": False},
-    {"retriever_type": "dense",  "chunk_size": 1024, "reranker": False},
+    {"retriever_type": "dense", "chunk_size": 256, "reranker": False},
+    {"retriever_type": "dense", "chunk_size": 512, "reranker": False},
+    {"retriever_type": "dense", "chunk_size": 1024, "reranker": False},
     # bm25 — reranker OFF                              # ABLATION EXPERIMENT
-    {"retriever_type": "bm25",   "chunk_size": 256, "reranker": False},
-    {"retriever_type": "bm25",   "chunk_size": 512, "reranker": False},
-    {"retriever_type": "bm25",   "chunk_size": 1024, "reranker": False},
+    {"retriever_type": "bm25", "chunk_size": 256, "reranker": False},
+    {"retriever_type": "bm25", "chunk_size": 512, "reranker": False},
+    {"retriever_type": "bm25", "chunk_size": 1024, "reranker": False},
     # hybrid — reranker ON                             # ABLATION EXPERIMENT
     {"retriever_type": "hybrid", "chunk_size": 256, "reranker": True},
     {"retriever_type": "hybrid", "chunk_size": 512, "reranker": True},

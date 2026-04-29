@@ -148,6 +148,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
+      - name: Free disk space (Docker)
+        run: |
+          docker system prune -af --volumes || true
+          df -h
+
       - name: Build FastAPI image
         uses: docker/build-push-action@v5
         with:
@@ -156,7 +161,7 @@ jobs:
           push: false         # build only — no registry push on PRs
           tags: ragops/fastapi:pr-${{ github.event.pull_request.number }}
           cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=min
           build-args: |
             PYTHON_VERSION=3.11
 

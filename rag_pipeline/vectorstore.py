@@ -28,7 +28,7 @@ except ValueError as exc:
     raise ValueError(
         f"CHROMA_PORT must be a valid integer, got '{_chroma_port_raw}'"
     ) from exc
-EMBED_MODEL  = "sentence-transformers/all-MiniLM-L6-v2"
+EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 VALID_CHUNK_SIZES = (256, 512, 1024)
 
@@ -36,16 +36,21 @@ VALID_CHUNK_SIZES = (256, 512, 1024)
 # Embedding function (shared across ingest + retrieval)
 # ---------------------------------------------------------------------------
 
+
 @lru_cache(maxsize=1)
-def get_embedding_function() -> embedding_functions.SentenceTransformerEmbeddingFunction:
+def get_embedding_function() -> (
+    embedding_functions.SentenceTransformerEmbeddingFunction
+):
     """Return a cached SentenceTransformer embedding function (singleton)."""
     return embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name=EMBED_MODEL
     )
 
+
 # ---------------------------------------------------------------------------
 # Client factory
 # ---------------------------------------------------------------------------
+
 
 def get_chroma_client() -> ClientAPI:
     """
@@ -61,9 +66,11 @@ def get_chroma_client() -> ClientAPI:
     logger.info("Connected to ChromaDB at %s:%s", CHROMA_HOST, CHROMA_PORT)
     return client
 
+
 # ---------------------------------------------------------------------------
 # Collection helpers
 # ---------------------------------------------------------------------------
+
 
 def collection_name(chunk_size: int) -> str:
     """
@@ -92,15 +99,15 @@ def get_or_create_collection(
         chromadb.Collection with cosine similarity metric and MiniLM embeddings.
     """
     client = client or get_chroma_client()
-    name   = collection_name(chunk_size)
-    ef     = get_embedding_function()
+    name = collection_name(chunk_size)
+    ef = get_embedding_function()
 
     collection = cast(
         Collection,
         client.get_or_create_collection(
             name=name,
             embedding_function=ef,
-            metadata={"hnsw:space": "cosine"},   # cosine similarity for dense retrieval
+            metadata={"hnsw:space": "cosine"},  # cosine similarity for dense retrieval
         ),
     )
     logger.info(
@@ -114,7 +121,7 @@ def get_or_create_collection(
 def delete_collection(chunk_size: int, client: Optional[ClientAPI] = None) -> None:
     """Drop a collection entirely (useful for re-ingestion runs)."""
     client = client or get_chroma_client()
-    name   = collection_name(chunk_size)
+    name = collection_name(chunk_size)
     client.delete_collection(name)
     logger.warning("Deleted collection '%s'.", name)
 
@@ -123,11 +130,11 @@ def collection_stats(
     chunk_size: int, client: Optional[ClientAPI] = None
 ) -> dict[str, Any]:
     """Return basic stats for a collection."""
-    client     = client or get_chroma_client()
+    client = client or get_chroma_client()
     collection = get_or_create_collection(chunk_size, client)
     return {
         "collection": collection.name,
-        "doc_count":  collection.count(),
+        "doc_count": collection.count(),
         "embed_model": EMBED_MODEL,
-        "chunk_size":  chunk_size,
+        "chunk_size": chunk_size,
     }

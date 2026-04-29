@@ -35,13 +35,13 @@ logger = logging.getLogger("ragops.baseline")
 
 
 BASELINE_CONFIG = {
-    "retriever_type":   "hybrid",
-    "chunk_size":       512,
-    "k":                5,
-    "reranker":         True,
-    "dense_weight":     0.6,
+    "retriever_type": "hybrid",
+    "chunk_size": 512,
+    "k": 5,
+    "reranker": True,
+    "dense_weight": 0.6,
     "preprocess_query": True,
-    "config_id":        "baseline-week2",
+    "config_id": "baseline-week2",
 }
 
 
@@ -51,9 +51,15 @@ def _parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(description="Capture RAGOps Week-2 baseline.")
     parser.add_argument("--qa-file", type=Path, default=default_qa)
-    parser.add_argument("--skip-eval", action="store_true", help="Skip RAGAS evaluation")
-    parser.add_argument("--skip-psi", action="store_true", help="Skip PSI baseline capture")
-    parser.add_argument("--skip-xai", action="store_true", help="Skip XAI baseline capture")
+    parser.add_argument(
+        "--skip-eval", action="store_true", help="Skip RAGAS evaluation"
+    )
+    parser.add_argument(
+        "--skip-psi", action="store_true", help="Skip PSI baseline capture"
+    )
+    parser.add_argument(
+        "--skip-xai", action="store_true", help="Skip XAI baseline capture"
+    )
     return parser.parse_args()
 
 
@@ -61,7 +67,9 @@ def _run_ragas(qa_file: Path) -> dict:
     from evaluation.ragas_runner import run_eval
 
     qa_pairs = json.loads(qa_file.read_text(encoding="utf-8"))
-    logger.info("Running RAGAS on %d questions (config=%s)", len(qa_pairs), BASELINE_CONFIG)
+    logger.info(
+        "Running RAGAS on %d questions (config=%s)", len(qa_pairs), BASELINE_CONFIG
+    )
     scores = run_eval(qa_pairs, config=BASELINE_CONFIG)
     logger.info("RAGAS scores: %s", scores)
     return scores

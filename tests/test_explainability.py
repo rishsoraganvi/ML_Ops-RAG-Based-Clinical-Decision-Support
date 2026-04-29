@@ -11,7 +11,7 @@ so the unit-tests CI job does not need torch/transformers downloads.
 
 from __future__ import annotations
 
-from typing import Any, List
+from typing import List
 
 import numpy as np
 import pytest
@@ -43,9 +43,24 @@ def _stub_attention(n_sentences: int = 3) -> List[dict]:
                 "sentence_idx": i,
                 "sentence": f"s{i}",
                 "spans": [
-                    {"text": "a", "score": 0.9 - i * 0.1, "char_start": 0, "char_end": 1},
-                    {"text": "b", "score": 0.5 - i * 0.1, "char_start": 2, "char_end": 3},
-                    {"text": "c", "score": 0.2 - i * 0.05, "char_start": 4, "char_end": 5},
+                    {
+                        "text": "a",
+                        "score": 0.9 - i * 0.1,
+                        "char_start": 0,
+                        "char_end": 1,
+                    },
+                    {
+                        "text": "b",
+                        "score": 0.5 - i * 0.1,
+                        "char_start": 2,
+                        "char_end": 3,
+                    },
+                    {
+                        "text": "c",
+                        "score": 0.2 - i * 0.05,
+                        "char_start": 4,
+                        "char_end": 5,
+                    },
                 ],
             }
         )
@@ -107,12 +122,14 @@ class TestTermAttribution:
 
         def fake_scores(q: str, doc: str) -> dict:
             calls.append((q, doc))
-            return {"metformin": 0.8, "diabetes": 0.5} if "metformin" in doc else {"diabetes": 0.3}
+            return (
+                {"metformin": 0.8, "diabetes": 0.5}
+                if "metformin" in doc
+                else {"diabetes": 0.3}
+            )
 
         # Patch where it's imported inside term_attribution.
-        monkeypatch.setattr(
-            "rag_pipeline.chain.bm25_term_scores", fake_scores
-        )
+        monkeypatch.setattr("rag_pipeline.chain.bm25_term_scores", fake_scores)
 
         source_docs = [
             {"page_content": "metformin is first-line", "metadata": {}},
@@ -141,7 +158,9 @@ class TestTermAttribution:
 class TestHallucinationClassifier:
     def test_rule_based_fallback_when_unfitted(self, tmp_path) -> None:
         clf = HallucinationClassifier(model_path=tmp_path / "none.joblib")
-        risk = clf.predict_proba({"mean_retrieval_score": 0.9, "min_retrieval_score": 0.8})
+        risk = clf.predict_proba(
+            {"mean_retrieval_score": 0.9, "min_retrieval_score": 0.8}
+        )
         assert 0.0 <= risk <= 1.0
         reason = clf.explain({"mean_retrieval_score": 0.9, "min_retrieval_score": 0.8})
         assert isinstance(reason, str) and reason
@@ -262,7 +281,8 @@ class TestExplainEndToEnd:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            xai, "attention_attribution",
+            xai,
+            "attention_attribution",
             lambda q, ctx, ans: [
                 {"sentence_idx": i, "sentence": "", "spans": []}
                 for i in range(ATTENTION_FIXED_SENTENCES)

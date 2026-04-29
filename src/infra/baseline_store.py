@@ -192,9 +192,7 @@ class FileBaselineStore(BaselineStore):
         self._dir.mkdir(parents=True, exist_ok=True)
         self._psi_path = self._dir / "embedding_baseline.npy"
         self._xai_path = self._dir / "xai_baseline.npz"
-        logger.info(
-            "FileBaselineStore active — persisting baselines to %s", self._dir
-        )
+        logger.info("FileBaselineStore active — persisting baselines to %s", self._dir)
 
     # ── PSI ──────────────────────────────────────────────────────────────────
 
@@ -219,9 +217,7 @@ class FileBaselineStore(BaselineStore):
         try:
             return np.load(self._psi_path)
         except (OSError, ValueError) as exc:
-            logger.error(
-                "Failed to load PSI baseline from %s: %s", self._psi_path, exc
-            )
+            logger.error("Failed to load PSI baseline from %s: %s", self._psi_path, exc)
             return None
 
     def has_psi_baseline(self) -> bool:  # PAPER CONTRIBUTION
@@ -246,14 +242,10 @@ class FileBaselineStore(BaselineStore):
             return None
         try:
             with np.load(self._xai_path) as data:
-                keys = sorted(
-                    data.files, key=lambda k: int(k.split("_")[1])
-                )
+                keys = sorted(data.files, key=lambda k: int(k.split("_")[1]))
                 return [np.array(data[k]) for k in keys]
         except (OSError, ValueError, KeyError, IndexError) as exc:
-            logger.error(
-                "Failed to load XAI baseline from %s: %s", self._xai_path, exc
-            )
+            logger.error("Failed to load XAI baseline from %s: %s", self._xai_path, exc)
             return None
 
     def has_xai_baseline(self) -> bool:  # XAI CONTRIBUTION

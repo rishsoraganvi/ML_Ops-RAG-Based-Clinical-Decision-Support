@@ -64,13 +64,13 @@ class TestComputeConsistency:
     ) -> None:
         vectors = [np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0])]
         with caplog.at_level(logging.INFO, logger="ragops.explanation_monitor"):
-            score = compute_consistency(current_vectors=vectors, baseline_vectors=vectors)
+            score = compute_consistency(
+                current_vectors=vectors, baseline_vectors=vectors
+            )
         assert score == pytest.approx(1.0)
         assert any("STABLE" in msg for msg in caplog.messages)
 
-    def test_warning_score_in_mid_band(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_warning_score_in_mid_band(self, caplog: pytest.LogCaptureFixture) -> None:
         # Build a pair whose cosine similarity lands in [0.60, 0.75).
         baseline = [np.array([1.0, 0.0])]
         current = [np.array([0.7, 0.7])]  # cos ≈ 0.707

@@ -19,7 +19,6 @@ import logging
 import sys
 import time
 from dataclasses import dataclass
-from typing import Callable
 
 import httpx
 
@@ -34,10 +33,11 @@ logger = logging.getLogger("ragops.healthcheck")
 @dataclass
 class ServiceCheck:
     """Configuration for a single service health check."""
+
     name: str
     url: str
     expected_status: int = 200
-    json_key: str | None = None        # optional key to assert exists in response JSON
+    json_key: str | None = None  # optional key to assert exists in response JSON
 
 
 SERVICES: list[ServiceCheck] = [
@@ -82,7 +82,10 @@ def check_service(service: ServiceCheck, timeout: float = 10.0) -> tuple[bool, s
     try:
         response = httpx.get(service.url, timeout=timeout)
         if response.status_code != service.expected_status:
-            return False, f"HTTP {response.status_code} (expected {service.expected_status})"
+            return (
+                False,
+                f"HTTP {response.status_code} (expected {service.expected_status})",
+            )
 
         if service.json_key is not None:
             body = response.json()
@@ -197,7 +200,9 @@ def main() -> None:
     logger.info("RAGOps health check starting — %d service(s)", len(SERVICES))
 
     if args.timeout > 0:
-        logger.info("Waiting mode: up to %ds for all services to become healthy", args.timeout)
+        logger.info(
+            "Waiting mode: up to %ds for all services to become healthy", args.timeout
+        )
         success = wait_for_all_healthy(
             SERVICES,
             timeout=args.timeout,

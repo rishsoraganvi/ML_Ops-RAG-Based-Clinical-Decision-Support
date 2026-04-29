@@ -90,9 +90,7 @@ def trigger_refresh(drift_report: dict[str, Any] | None = None) -> dict[str, Any
             try:
                 from src.config.settings import settings
 
-                embeddings = get_embeddings(
-                    chunk_size=settings.baseline_chunk_size
-                )
+                embeddings = get_embeddings(chunk_size=settings.baseline_chunk_size)
                 capture_baseline(embeddings)
             except Exception as exc:
                 logger.warning(
