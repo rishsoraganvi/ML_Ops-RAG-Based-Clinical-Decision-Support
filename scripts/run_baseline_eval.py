@@ -72,7 +72,7 @@ def _capture_psi() -> None:
     from mlops.drift_detector import capture_baseline
 
     logger.info("Fetching embedding matrix for PSI baseline...")
-    embeddings = get_embeddings()
+    embeddings = get_embeddings(chunk_size=BASELINE_CONFIG["chunk_size"])
     logger.info("Capturing PSI baseline (shape=%s)", embeddings.shape)
     capture_baseline(embeddings)
 

@@ -61,12 +61,12 @@ def _psi_per_dimension(
     """Compute PSI for each embedding dimension.
 
     Args:
-        baseline: 1-D array of baseline values for one dimension.
-        current:  1-D array of current values for one dimension.
-        num_bins: Number of histogram bins.
+        baseline: 2-D array of shape (n_docs, n_dims) — reference matrix.
+        current:  2-D array of shape (n_docs, n_dims) — current matrix.
+        num_bins: Number of histogram bins (per dimension).
 
     Returns:
-        1-D array of per-dimension PSI scores.
+        1-D array of length n_dims with per-dimension PSI scores.
     """
     n_dims = baseline.shape[1]
     psi_scores = np.zeros(n_dims)

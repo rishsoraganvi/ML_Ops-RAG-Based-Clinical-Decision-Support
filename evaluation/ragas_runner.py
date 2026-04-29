@@ -230,6 +230,7 @@ def _run_ragas(
             metric.embeddings = ragas_emb
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_registry_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
     cfg_hash = _config_fingerprint(config)

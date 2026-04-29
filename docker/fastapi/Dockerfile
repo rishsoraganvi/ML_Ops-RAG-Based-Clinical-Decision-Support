@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ── Non-root user for security ────────────────────────────────────────────────
 RUN groupadd --gid 1001 ragops && \
     useradd  --uid 1001 --gid ragops --shell /bin/bash --create-home ragops
+    
+# lines to ensure the directory exists and is owned by the correct user before the server starts
+RUN mkdir -p /mlflow/data/artifacts && \
+    chmod -R 777 /mlflow
 
 WORKDIR /app
 
@@ -42,3 +46,5 @@ CMD ["uvicorn", "serving.api:app", \
      "--workers", "2", \
      "--log-level", "info", \
      "--no-access-log"]
+
+COPY . /app

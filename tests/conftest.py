@@ -43,9 +43,10 @@ def mock_mlflow_client(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 @pytest.fixture(autouse=True)
-def _reset_baseline_store() -> Iterator[None]:
-    """Clear the in-memory BaselineStore singleton before and after each test
-    so PSI/XAI baselines don't leak across tests."""
+def _reset_baseline_store(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Clear the BaselineStore singleton and force the in-memory backend so
+    unit tests never touch the filesystem-backed store."""
+    monkeypatch.setenv("RAGOPS_BASELINE_STORE", "memory")
     import src.infra.baseline_store as bs
 
     bs._store = None

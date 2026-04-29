@@ -12,6 +12,7 @@ Import pattern (use everywhere, never re-read os.environ directly):
 """
 
 import logging
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -52,6 +53,10 @@ class RAGOpsSettings(BaseSettings):
     ragas_faithfulness_min: float = 0.80
     ragas_context_recall_min: float = 0.75
     ragas_answer_relevancy_min: float = 0.75
+
+    # ── Baseline persistence (PAPER CONTRIBUTION) ────────────────────────────
+    baseline_dir: Path = Path("/app/baselines")
+    baseline_chunk_size: int = 512
 
     # ── Application ───────────────────────────────────────────────────────────
     log_level: str = "INFO"
