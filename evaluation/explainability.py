@@ -41,6 +41,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
+from numpy.typing import NDArray
+
+FloatArray = NDArray[np.floating[Any]]
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +118,7 @@ def _get_embedder() -> Any:
     return get_embedding_function()
 
 
-def _embed(texts: Sequence[str]) -> np.ndarray:
+def _embed(texts: Sequence[str]) -> FloatArray:
     """Embed texts via the shared sentence-transformers function."""
     ef = _get_embedder()
     try:
@@ -129,7 +132,7 @@ def _embed(texts: Sequence[str]) -> np.ndarray:
     return arr
 
 
-def _cosine(a: np.ndarray, b: np.ndarray) -> float:
+def _cosine(a: FloatArray, b: FloatArray) -> float:
     denom = (np.linalg.norm(a) * np.linalg.norm(b)) + 1e-12
     return float(np.dot(a, b) / denom)
 
@@ -149,7 +152,7 @@ def _split_sentences(text: str) -> List[str]:
 
 def shap_retrieval_explain(  # XAI CONTRIBUTION
     question: str,
-    source_docs: List[dict],
+    source_docs: List[dict[str, Any]],
     retrieval_scores: List[float],
     answer: Optional[str] = None,
 ) -> List[float]:
@@ -182,7 +185,7 @@ def shap_retrieval_explain(  # XAI CONTRIBUTION
         # Pad/truncate defensively.
         scores_arr = np.resize(scores_arr, n)
 
-    def f(mask_batch: np.ndarray) -> np.ndarray:
+    def f(mask_batch: FloatArray) -> FloatArray:
         out = np.zeros(mask_batch.shape[0], dtype=np.float64)
         for i, mask in enumerate(mask_batch):
             weights = mask * scores_arr
@@ -291,7 +294,7 @@ def attention_attribution(  # XAI CONTRIBUTION
     question: str,
     context: str,
     answer: str,
-) -> List[dict]:
+) -> List[dict[str, Any]]:
     """
     Gradient-saliency attribution per answer sentence.
 
@@ -302,7 +305,7 @@ def attention_attribution(  # XAI CONTRIBUTION
     sentences = sentences[:ATTENTION_FIXED_SENTENCES]
 
     loaded = _get_hf_model()
-    results: List[dict] = []
+    results: List[dict[str, Any]] = []
 
     if loaded is None or not context:
         logger.info("Attention attribution unavailable; returning empty padded slots")
@@ -335,8 +338,8 @@ def attention_attribution(  # XAI CONTRIBUTION
 
 def build_explanation_vector(  # XAI CONTRIBUTION
     shap_values: Sequence[float],
-    attention_spans: Sequence[dict],
-) -> np.ndarray:
+    attention_spans: Sequence[dict[str, Any]],
+) -> FloatArray:
     """
     Concatenate top-K SHAP values and flattened top-N attention span
     scores into a fixed-dim (20,) float64 vector. Deterministic — two
@@ -376,7 +379,7 @@ def build_explanation_vector(  # XAI CONTRIBUTION
 
 def term_attribution(  # XAI CONTRIBUTION
     question: str,
-    source_docs: List[dict],
+    source_docs: List[dict[str, Any]],
 ) -> Dict[str, Any]:
     """
     Aggregate BM25 term scores across all source documents.
@@ -452,7 +455,7 @@ class HallucinationClassifier:  # XAI CONTRIBUTION
 
     # ---- public API -------------------------------------------------
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> None:
+    def fit(self, X: FloatArray, y: FloatArray) -> None:
         from sklearn.linear_model import LogisticRegression
         import joblib
 
@@ -509,7 +512,7 @@ class HallucinationClassifier:  # XAI CONTRIBUTION
 
     # ---- internals --------------------------------------------------
 
-    def _features_to_vector(self, features: Any) -> np.ndarray:
+    def _features_to_vector(self, features: Any) -> FloatArray:
         if isinstance(features, dict):
             return np.asarray(
                 [float(features.get(name, 0.0)) for name in _FEATURE_ORDER],
@@ -521,7 +524,7 @@ class HallucinationClassifier:  # XAI CONTRIBUTION
         return arr
 
     @staticmethod
-    def _rule_based_risk(vec: np.ndarray) -> float:
+    def _rule_based_risk(vec: FloatArray) -> float:
         # Map: retrieval confidence up → risk down; shap entropy up → risk up.
         mean_rs = _clip01(float(vec[0]))
         min_rs = _clip01(float(vec[1]))
@@ -549,7 +552,7 @@ def _shap_entropy(shap_values: Sequence[float]) -> float:
     return float(ent / math.log(arr.size))
 
 
-def _top_attention_score(attention_spans: Sequence[dict]) -> float:
+def _top_attention_score(attention_spans: Sequence[dict[str, Any]]) -> float:
     best = 0.0
     for entry in attention_spans:
         for span in entry.get("spans", []):
@@ -559,7 +562,7 @@ def _top_attention_score(attention_spans: Sequence[dict]) -> float:
 
 def explain(  # XAI CONTRIBUTION
     question: str,
-    source_docs: List[dict],
+    source_docs: List[dict[str, Any]],
     retrieval_scores: List[float],
     answer: Optional[str] = None,
 ) -> Dict[str, Any]:

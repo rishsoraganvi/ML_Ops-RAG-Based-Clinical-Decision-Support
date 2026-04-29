@@ -93,6 +93,25 @@ def chunk_documents(
 # ---------------------------------------------------------------------------
 
 
+AllowedMetaValue = str | int | float | bool
+
+
+def _sanitize_metadata(meta: dict[str, Any]) -> dict[str, AllowedMetaValue]:
+    """Coerce arbitrary metadata values to Chroma-compatible primitives.
+
+    Chroma metadata values are restricted to ``str | int | float | bool``;
+    anything else is stringified.
+    """
+    out: dict[str, AllowedMetaValue] = {}
+    for k, v in meta.items():
+        key = str(k)
+        if isinstance(v, bool) or isinstance(v, (int, float, str)):
+            out[key] = v
+        else:
+            out[key] = str(v)
+    return out
+
+
 def _chunk_id(text: str, metadata: dict[str, Any]) -> str:
     """
     Deterministic SHA-256 ID for a chunk so re-ingestion is idempotent.
@@ -145,7 +164,7 @@ def ingest_documents(
     # ── 2. Prepare upsert payloads ─────────────────────────────────────────
     ids = [_chunk_id(c.page_content, c.metadata) for c in chunks]
     texts = [c.page_content for c in chunks]
-    metadatas = [c.metadata for c in chunks]
+    metadatas = [_sanitize_metadata(c.metadata) for c in chunks]
 
     # ── 3. Batch upsert ───────────────────────────────────────────────────
     t0 = time.perf_counter()

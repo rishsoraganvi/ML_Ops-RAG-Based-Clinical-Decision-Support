@@ -19,9 +19,12 @@ from typing import Any
 
 import mlflow
 import numpy as np
+from numpy.typing import NDArray
 
 from src.config.settings import settings
 from src.infra.baseline_store import get_baseline_store
+
+FloatArray = NDArray[np.floating[Any]]
 
 logger = logging.getLogger("ragops.drift_detector")
 
@@ -30,7 +33,7 @@ _EPSILON = 1e-6
 
 
 # PAPER CONTRIBUTION
-def capture_baseline(embeddings: np.ndarray) -> None:
+def capture_baseline(embeddings: FloatArray) -> None:
     """Compute and store embedding distribution baseline after initial ingestion.
 
     Called once after initial document ingestion, and again after each
@@ -54,10 +57,10 @@ def capture_baseline(embeddings: np.ndarray) -> None:
 
 # PAPER CONTRIBUTION
 def _psi_per_dimension(
-    baseline: np.ndarray,
-    current: np.ndarray,
+    baseline: FloatArray,
+    current: FloatArray,
     num_bins: int,
-) -> np.ndarray:
+) -> FloatArray:
     """Compute PSI for each embedding dimension.
 
     Args:
@@ -90,7 +93,7 @@ def _psi_per_dimension(
 
 
 # PAPER CONTRIBUTION
-def compute_psi(current_embeddings: np.ndarray) -> float:
+def compute_psi(current_embeddings: FloatArray) -> float:
     """Compute PSI between current embeddings and stored baseline.
 
     Computes PSI per embedding dimension using histogram binning,

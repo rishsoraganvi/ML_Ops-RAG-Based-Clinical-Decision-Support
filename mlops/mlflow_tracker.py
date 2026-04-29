@@ -43,7 +43,7 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Generator
+from typing import Any, Generator, cast
 
 import mlflow
 from mlflow.entities import Run
@@ -212,7 +212,7 @@ class RAGOpsTracker:
         experiment = mlflow.get_experiment_by_name(self._experiment_name)
         if experiment is not None:
             logger.debug("Reusing existing experiment '%s'", self._experiment_name)
-            return experiment.experiment_id
+            return cast(str, experiment.experiment_id)
 
         try:
             experiment_id = mlflow.create_experiment(
@@ -224,7 +224,7 @@ class RAGOpsTracker:
                 self._experiment_name,
                 experiment_id,
             )
-            return experiment_id
+            return cast(str, experiment_id)
         except MlflowException as exc:
             # Race condition: another process created it between get and create
             logger.warning("Experiment creation race — falling back to get: %s", exc)
@@ -233,7 +233,7 @@ class RAGOpsTracker:
                 raise RuntimeError(
                     f"Cannot resolve MLflow experiment '{self._experiment_name}'"
                 ) from exc
-            return experiment.experiment_id
+            return cast(str, experiment.experiment_id)
 
     # ── Run lifecycle ─────────────────────────────────────────────────────────
 
@@ -477,6 +477,8 @@ class RAGOpsTracker:
         """
         self._assert_run_active()
         run_id = self.active_run_id
+        if run_id is None:
+            raise RuntimeError("No active MLflow run_id found")
 
         client = mlflow.MlflowClient()
         run_data = client.get_run(run_id).data.metrics

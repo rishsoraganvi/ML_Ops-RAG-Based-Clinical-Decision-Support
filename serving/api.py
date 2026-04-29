@@ -14,7 +14,7 @@ Exposes:
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -128,7 +128,7 @@ class QueryRequest(BaseModel):
     """Input for the /query endpoint."""
 
     question: str
-    config: dict | None = None
+    config: dict[str, Any] | None = None
     log_to_mlflow: bool = False
 
 
@@ -136,7 +136,7 @@ class SourceDoc(BaseModel):
     """A single retrieved source document."""
 
     page_content: str
-    metadata: dict
+    metadata: dict[str, Any]
 
 
 class QueryResponse(BaseModel):
@@ -148,7 +148,7 @@ class QueryResponse(BaseModel):
     llm_latency_ms: float
     total_latency_ms: float
     retrieval_scores: list[float]
-    config: dict
+    config: dict[str, Any]
 
 
 @app.post("/query", response_model=QueryResponse, tags=["rag"])
@@ -240,7 +240,7 @@ class EvalRequest(BaseModel):
     """Input for the /evaluate endpoint."""
 
     qa_pairs: list[QAPair] | None = None
-    config: dict | None = None
+    config: dict[str, Any] | None = None
     mode: str = "ci"  # "ci" or "full"
     run_quality_gate: bool = True
 
@@ -256,7 +256,7 @@ class EvalResponse(BaseModel):
     quality_gate_failures: dict[str, str] | None = None
 
 
-def _run_eval_sync(req: EvalRequest) -> dict:
+def _run_eval_sync(req: EvalRequest) -> dict[str, Any]:
     """Synchronous wrapper for RAGAS evaluation + optional quality gate."""
     from evaluation.ragas_runner import run_ci_eval, run_eval
     from mlops.mlflow_tracker import RAGASMetrics, RAGOpsTracker, RunTrigger
@@ -270,7 +270,7 @@ def _run_eval_sync(req: EvalRequest) -> dict:
             raise ValueError("qa_pairs required for full evaluation mode")
         scores = run_eval(qa_pairs=pairs, config=req.config)
 
-    result: dict = {
+    result: dict[str, Any] = {
         "faithfulness": scores.get("faithfulness", 0.0),
         "context_recall": scores.get("context_recall", 0.0),
         "answer_relevance": scores.get("answer_relevance", 0.0),
@@ -463,7 +463,7 @@ class XAIResponse(BaseModel):
     thresholds: dict[str, float]
 
 
-def _replay_xai_benchmark() -> list:
+def _replay_xai_benchmark() -> list[Any]:
     """Run the RAG chain on the first N benchmark questions and return their
     explanation vectors. Mirrors `scripts/run_baseline_eval.py::_capture_xai`
     so /xai/check can self-serve when the caller did not supply vectors.
@@ -489,7 +489,7 @@ def _replay_xai_benchmark() -> list:
     qa_pairs = json.loads(qa_file.read_text(encoding="utf-8"))
     subset = qa_pairs[: settings.xai_benchmark_questions]
 
-    vectors: list = []
+    vectors: list[Any] = []
     for item in subset:
         try:
             result = rag_query(item["question"])
@@ -522,7 +522,7 @@ async def xai_check(req: XAIRequest) -> XAIResponse:
 
     try:
         if req.current_vectors:
-            vectors: list = [np.array(v) for v in req.current_vectors]
+            vectors: list[Any] = [np.array(v) for v in req.current_vectors]
         else:
             logger.info(
                 "/xai/check called without current_vectors \u2014 replaying "
@@ -629,7 +629,7 @@ class ExplainResponse(BaseModel):
 
     shap_values: list[float]
     token_attributions: list[TokenAttributionSentence]
-    term_attribution: dict
+    term_attribution: dict[str, Any]
     explanation_vector: list[float]
     hallucination_risk: float
     hallucination_reason: str
@@ -731,7 +731,7 @@ async def explain_endpoint(req: ExplainRequest) -> ExplainResponse:
 class MLflowRunsResponse(BaseModel):
     """Recent MLflow runs flattened for the dashboard."""
 
-    runs: list[dict]
+    runs: list[dict[str, Any]]
 
 
 class MLflowCompareRequest(BaseModel):
@@ -744,15 +744,17 @@ class MLflowCompareRequest(BaseModel):
 class MLflowCompareResponse(BaseModel):
     """Output of mlops.compare_runs.compare_runs."""
 
-    run_a: dict
-    run_b: dict
+    run_a: dict[str, Any]
+    run_b: dict[str, Any]
     deltas: dict[str, float]
     improved: list[str]
     regressed: list[str]
     unchanged: list[str]
 
 
-def _list_mlflow_runs_sync(experiment_name: str, max_results: int) -> list[dict]:
+def _list_mlflow_runs_sync(
+    experiment_name: str, max_results: int
+) -> list[dict[str, Any]]:
     """Synchronous MLflow run search; runs in a worker thread."""
     import mlflow
 
@@ -768,9 +770,9 @@ def _list_mlflow_runs_sync(experiment_name: str, max_results: int) -> list[dict]
         max_results=max_results,
     )
 
-    records: list[dict] = []
+    records: list[dict[str, Any]] = []
     for r in runs:
-        row: dict = {"run_id": r.info.run_id, "start_time": r.info.start_time}
+        row: dict[str, Any] = {"run_id": r.info.run_id, "start_time": r.info.start_time}
         row.update(r.data.metrics)
         row.update({f"param_{k}": v for k, v in r.data.params.items()})
         records.append(row)

@@ -301,14 +301,13 @@ def hybrid_retrieve(
     dense_results = collection.query(
         query_embeddings=query_emb,
         n_results=fetch_k,
-        include=["documents", "metadatas", "distances"],
+        include=cast(Any, ["documents", "metadatas", "distances"]),
     )
+    dense_docs_raw = dense_results.get("documents") or [[]]
+    dense_metas_raw = dense_results.get("metadatas") or [[]]
     dense_docs = [
         Document(page_content=text, metadata=meta)
-        for text, meta in zip(
-            dense_results["documents"][0],
-            dense_results["metadatas"][0],
-        )
+        for text, meta in zip(dense_docs_raw[0], dense_metas_raw[0])
     ]
 
     # 2. BM25 candidates (top-20) — reuse cached corpus and index
@@ -354,8 +353,8 @@ def _reciprocal_rank_fusion(
     RRF score for doc d = sum_i( weight_i / (rrf_k + rank_i(d)) )
     Deduplication is by page_content hash.
     """
-    scores: dict = {}
-    doc_map: dict = {}
+    scores: dict[str, float] = {}
+    doc_map: dict[str, Document] = {}
 
     for doc_list, weight in zip(doc_lists, weights):
         for rank, doc in enumerate(doc_list, start=1):
@@ -502,13 +501,13 @@ def retrieve_with_scores(
     results = collection.query(
         query_embeddings=query_emb,
         n_results=k,
-        include=["documents", "metadatas", "distances"],
+        include=cast(Any, ["documents", "metadatas", "distances"]),
     )
     latency_ms = round((time.perf_counter() - t0) * 1000, 2)
 
-    raw_docs = results["documents"][0]
-    raw_metas = results["metadatas"][0]
-    raw_dists = results["distances"][0]
+    raw_docs = (results.get("documents") or [[]])[0]
+    raw_metas = (results.get("metadatas") or [[]])[0]
+    raw_dists = (results.get("distances") or [[]])[0]
 
     scores = [round(1.0 - (d / 2.0), 6) for d in raw_dists]
     docs = [

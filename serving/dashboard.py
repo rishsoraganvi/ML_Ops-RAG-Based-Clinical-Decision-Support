@@ -118,7 +118,7 @@ def _api_get(
         return {}
 
 
-@st.cache_data(ttl=60)  # type: ignore[misc]
+@st.cache_data(ttl=60)  # type: ignore[misc,untyped-decorator]
 def _fetch_mlflow_runs(experiment_name: str, max_results: int = 50) -> pd.DataFrame:
     """Pull recent MLflow runs as a DataFrame via the FastAPI proxy."""
     payload = _api_get(
