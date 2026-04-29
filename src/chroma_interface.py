@@ -60,9 +60,7 @@ def get_embeddings(chunk_size: int = 512) -> NDArray[np.float32]:
     return matrix
 
 
-def incremental_upsert(
-    new_docs: list[dict[str, Any]], chunk_size: int = 512
-) -> int:
+def incremental_upsert(new_docs: list[dict[str, Any]], chunk_size: int = 512) -> int:
     """Add new documents to ChromaDB without re-embedding existing ones.
 
     Converts raw PubMed records to LangChain Documents, then delegates

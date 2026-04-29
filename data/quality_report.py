@@ -1,8 +1,6 @@
 # data/quality_report.py
 import json
-import os
 from collections import Counter
-from pathlib import Path
 
 JSONL_PATH = "data/processed/pubmed_processed.jsonl"
 OUTPUT_HTML = "data/quality_report.html"
@@ -29,20 +27,20 @@ def run_quality_checks(records: list) -> dict:
     date_counts = Counter(d[:4] for d in pub_dates)
 
     return {
-        "total_records":        len(records),
-        "duplicate_pmids":      len(duplicate_pmids),
-        "duplicate_list":       duplicate_pmids[:10],
-        "min_word_count":       min(word_counts),
-        "max_word_count":       max(word_counts),
-        "avg_word_count":       round(sum(word_counts) / len(word_counts), 1),
-        "records_under_50":     sum(1 for w in word_counts if w < 50),
-        "records_with_mesh":    records_with_mesh,
-        "mesh_coverage_pct":    round(records_with_mesh / len(records) * 100, 1),
-        "top_mesh_terms":       Counter(mesh_terms).most_common(10),
-        "date_distribution":    sorted(date_counts.items()),
-        "unknown_dates":        sum(1 for r in records if r["pub_date"] == "unknown"),
-        "missing_abstract":     sum(1 for r in records if not r.get("abstract")),
-        "missing_title":        sum(1 for r in records if not r.get("title")),
+        "total_records": len(records),
+        "duplicate_pmids": len(duplicate_pmids),
+        "duplicate_list": duplicate_pmids[:10],
+        "min_word_count": min(word_counts),
+        "max_word_count": max(word_counts),
+        "avg_word_count": round(sum(word_counts) / len(word_counts), 1),
+        "records_under_50": sum(1 for w in word_counts if w < 50),
+        "records_with_mesh": records_with_mesh,
+        "mesh_coverage_pct": round(records_with_mesh / len(records) * 100, 1),
+        "top_mesh_terms": Counter(mesh_terms).most_common(10),
+        "date_distribution": sorted(date_counts.items()),
+        "unknown_dates": sum(1 for r in records if r["pub_date"] == "unknown"),
+        "missing_abstract": sum(1 for r in records if not r.get("abstract")),
+        "missing_title": sum(1 for r in records if not r.get("title")),
     }
 
 
@@ -57,8 +55,8 @@ def generate_html(stats: dict, output_path: str):
     )
     dup_warning = (
         f'<p style="color:red">Found {stats["duplicate_pmids"]} duplicate PMIDs!</p>'
-        if stats["duplicate_pmids"] > 0 else
-        '<p style="color:green">No duplicate PMIDs found.</p>'
+        if stats["duplicate_pmids"] > 0
+        else '<p style="color:green">No duplicate PMIDs found.</p>'
     )
 
     html = f"""<!DOCTYPE html>

@@ -15,6 +15,8 @@ volumes:
     driver: local
   ollama_data:       # Ollama model cache (LLaMA-3.2-3B weights — ~2.0 GB)
     driver: local
+  ragops_baselines:  # PAPER CONTRIBUTION: PSI + XAI baselines (FastAPI ↔ baseline script)
+    driver: local
 
 # ---------------------------------------------------------------------------
 # Shared network — all services communicate on ragops_net
@@ -58,8 +60,8 @@ services:
     restart: unless-stopped
     command: >
       mlflow server
-        --backend-store-uri sqlite:////mlflow/db/mlflow.db
-        --default-artifact-root /mlflow/artifacts
+        --backend-store-uri sqlite:////mlflow/data/mlflow.db
+        --default-artifact-root /mlflow/data/artifacts
         --host 0.0.0.0
         --port ${MLFLOW_PORT:-5000}
         --serve-artifacts
@@ -68,7 +70,7 @@ services:
     ports:
       - "${MLFLOW_PORT:-5000}:5000"
     volumes:
-      - ./mlflow_data:/mlflow
+      - mlflow_data:/mlflow/data
     networks:
       - ragops_net
     healthcheck:
@@ -119,6 +121,9 @@ services:
 
   # ── 4. FastAPI (RAGOps orchestration layer) ────────────────────────────────
   fastapi:
+    user: root  # Run as root to ensure it can modify permissions
+    entrypoint: >
+      sh -c "mkdir -p /mlflow && chmod -R 777 /mlflow && uvicorn serving.api:app --host 0.0.0.0 --port 8080"
     build:
       context: .
       dockerfile: docker/fastapi/Dockerfile
@@ -142,6 +147,10 @@ services:
       XAI_WARNING_THRESHOLD: "${XAI_WARNING_THRESHOLD:-0.75}"
       XAI_ALERT_THRESHOLD: "${XAI_ALERT_THRESHOLD:-0.60}"
 
+      # Baseline persistence (PAPER CONTRIBUTION)
+      BASELINE_DIR: "/app/baselines"
+      BASELINE_CHUNK_SIZE: "${BASELINE_CHUNK_SIZE:-512}"
+
       # General
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       ENVIRONMENT: "${ENVIRONMENT:-production}"
@@ -156,6 +165,8 @@ services:
       - ./rag_pipeline:/app/rag_pipeline:ro
       - ./evaluation:/app/evaluation:ro
       - ./data:/app/data:ro
+      - ragops_baselines:/app/baselines
+      - .:/app
     networks:
       - ragops_net
     depends_on:

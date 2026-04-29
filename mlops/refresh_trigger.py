@@ -87,8 +87,16 @@ def trigger_refresh(drift_report: dict[str, Any] | None = None) -> dict[str, Any
 
             # Step 3: Re-capture PSI baseline
             logger.info("KB refresh: re-capturing PSI baseline...")
-            embeddings = get_embeddings()
-            capture_baseline(embeddings)
+            try:
+                from src.config.settings import settings
+
+                embeddings = get_embeddings(chunk_size=settings.baseline_chunk_size)
+                capture_baseline(embeddings)
+            except Exception as exc:
+                logger.warning(
+                    "KB refresh: baseline re-capture failed (continuing): %s",
+                    exc,
+                )
 
             # Step 4: "after" metrics
             logger.info("KB refresh: capturing after-metrics via CI eval...")

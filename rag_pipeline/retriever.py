@@ -40,17 +40,17 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-DEFAULT_K        = 5
-RERANKER_MODEL   = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+DEFAULT_K = 5
+RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 VALID_RETRIEVERS = ("dense", "bm25", "hybrid")
 
 # Hybrid: retrieve k * HYBRID_FETCH_MULT candidates from each side
 # before reranking down to k.
 # 4 x 5 = 20 candidates — matches Week 2 spec "re-rank top-20, return top-k"
-HYBRID_FETCH_MULT = 4                          # ABLATION EXPERIMENT
+HYBRID_FETCH_MULT = 4  # ABLATION EXPERIMENT
 
 # Hybrid dense/BM25 weights — spec: 0.6 x dense + 0.4 x BM25
-DEFAULT_DENSE_WEIGHT = 0.6                     # ABLATION EXPERIMENT
+DEFAULT_DENSE_WEIGHT = 0.6  # ABLATION EXPERIMENT
 
 # Cache the cross-encoder so it loads only once per process
 _reranker: Optional[CrossEncoder] = None
@@ -77,10 +77,11 @@ def _tokenise(text: str) -> List[str]:
 # Internal: LangChain Chroma vectorstore wrapper
 # ---------------------------------------------------------------------------
 
+
 def _chroma_vectorstore(chunk_size: int) -> Chroma:
     """Build a LangChain Chroma vectorstore backed by the persistent HttpClient."""
     collection = get_or_create_collection(chunk_size)
-    ef         = get_embedding_function()
+    ef = get_embedding_function()
     vectorstore = Chroma(
         client=get_chroma_client(),
         collection_name=collection.name,
@@ -92,6 +93,7 @@ def _chroma_vectorstore(chunk_size: int) -> Chroma:
 # ---------------------------------------------------------------------------
 # Dense retriever (Week 1)
 # ---------------------------------------------------------------------------
+
 
 def dense_retriever(
     chunk_size: int = 512,
@@ -111,7 +113,7 @@ def dense_retriever(
         raise ValueError(f"chunk_size must be one of {VALID_CHUNK_SIZES}")
 
     vectorstore = _chroma_vectorstore(chunk_size)
-    retriever   = vectorstore.as_retriever(
+    retriever = vectorstore.as_retriever(
         search_type="similarity",
         search_kwargs={"k": k},
     )
@@ -122,6 +124,7 @@ def dense_retriever(
 # ---------------------------------------------------------------------------
 # BM25 retriever (Week 2)                                # ABLATION EXPERIMENT
 # ---------------------------------------------------------------------------
+
 
 def bm25_retriever(
     corpus_docs: List[Document],
@@ -160,7 +163,7 @@ def fetch_corpus(chunk_size: int) -> List[Document]:
         List[Document]
     """
     collection = get_or_create_collection(chunk_size)
-    total      = collection.count()
+    total = collection.count()
 
     if total == 0:
         raise RuntimeError(
@@ -208,6 +211,7 @@ def _get_bm25_components(chunk_size: int) -> Tuple[List[Document], Any]:
 # Cross-encoder reranker (Week 2)
 # ---------------------------------------------------------------------------
 
+
 def rerank(
     question: str,
     docs: List[Document],
@@ -228,20 +232,22 @@ def rerank(
         (reranked_docs, rerank_scores) — top_n docs sorted by cross-encoder score.
     """
     reranker = _get_reranker()
-    pairs    = [[question, d.page_content] for d in docs]
+    pairs = [[question, d.page_content] for d in docs]
     raw_scores = reranker.predict(pairs)
     if hasattr(raw_scores, "tolist"):
         scores = raw_scores.tolist()
     else:
         scores = list(raw_scores)
 
-    ranked     = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
-    top_docs   = [d for d, _ in ranked[:top_n]]
+    ranked = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
+    top_docs = [d for d, _ in ranked[:top_n]]
     top_scores = [round(s, 6) for _, s in ranked[:top_n]]
 
     logger.debug(
         "Reranker: %d candidates -> %d kept | top_score=%.4f",
-        len(docs), top_n, top_scores[0] if top_scores else 0.0,
+        len(docs),
+        top_n,
+        top_scores[0] if top_scores else 0.0,
     )
     return top_docs, top_scores
 
@@ -249,6 +255,7 @@ def rerank(
 # ---------------------------------------------------------------------------
 # Hybrid retrieval (Week 2)                              # ABLATION EXPERIMENT
 # ---------------------------------------------------------------------------
+
 
 def hybrid_retrieve(
     question: str,
@@ -283,13 +290,13 @@ def hybrid_retrieve(
             f"dense_weight must be in [0, 1], got {dense_weight!r}. "
             "BM25 weight is computed as 1 - dense_weight."
         )
-    fetch_k = k * HYBRID_FETCH_MULT    # 5 * 4 = 20 candidates per side
-    t0      = time.perf_counter()
+    fetch_k = k * HYBRID_FETCH_MULT  # 5 * 4 = 20 candidates per side
+    t0 = time.perf_counter()
 
     # 1. Dense candidates (top-20)
     collection = get_or_create_collection(chunk_size)
-    ef         = get_embedding_function()
-    query_emb  = ef([question])
+    ef = get_embedding_function()
+    query_emb = ef([question])
 
     dense_results = collection.query(
         query_embeddings=query_emb,
@@ -307,10 +314,10 @@ def hybrid_retrieve(
     # 2. BM25 candidates (top-20) — reuse cached corpus and index
     corpus, bm25_index = _get_bm25_components(chunk_size)
     query_tokens = _tokenise(question)
-    bm25_raw     = bm25_index.get_scores(query_tokens)
-    bm25_ranked  = sorted(
-        zip(corpus, bm25_raw), key=lambda x: x[1], reverse=True
-    )[:fetch_k]
+    bm25_raw = bm25_index.get_scores(query_tokens)
+    bm25_ranked = sorted(zip(corpus, bm25_raw), key=lambda x: x[1], reverse=True)[
+        :fetch_k
+    ]
     bm25_docs = [d for d, _ in bm25_ranked]
 
     # 3. Weighted RRF fusion (0.6 dense + 0.4 BM25)
@@ -326,8 +333,12 @@ def hybrid_retrieve(
     logger.info(
         "Hybrid retrieve — chunk=%d, k=%d, fetch_k=%d, "
         "dense_weight=%.1f, latency=%.1f ms, top_score=%.4f",
-        chunk_size, k, fetch_k, dense_weight,
-        latency_ms, rerank_scores[0] if rerank_scores else 0.0,
+        chunk_size,
+        k,
+        fetch_k,
+        dense_weight,
+        latency_ms,
+        rerank_scores[0] if rerank_scores else 0.0,
     )
     return reranked_docs, rerank_scores, latency_ms
 
@@ -343,14 +354,14 @@ def _reciprocal_rank_fusion(
     RRF score for doc d = sum_i( weight_i / (rrf_k + rank_i(d)) )
     Deduplication is by page_content hash.
     """
-    scores:  dict = {}
+    scores: dict = {}
     doc_map: dict = {}
 
     for doc_list, weight in zip(doc_lists, weights):
         for rank, doc in enumerate(doc_list, start=1):
             # Use SHA-256 of page_content for stable, collision-resistant dedup
             key = hashlib.sha256(doc.page_content.encode()).hexdigest()
-            scores[key]  = scores.get(key, 0.0) + weight / (rrf_k + rank)
+            scores[key] = scores.get(key, 0.0) + weight / (rrf_k + rank)
             doc_map[key] = doc
 
     ranked_keys = sorted(scores, key=lambda k: scores[k], reverse=True)
@@ -360,6 +371,7 @@ def _reciprocal_rank_fusion(
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
 
 def get_retriever(
     retriever_type: str = "dense",
@@ -405,8 +417,8 @@ class _HybridRetrieverWrapper(BaseRetriever):
     Scores accessible via retrieve_with_scores() for XAI.
     """
 
-    chunk_size:   int   = 256
-    k:            int   = DEFAULT_K
+    chunk_size: int = 256
+    k: int = DEFAULT_K
     dense_weight: float = DEFAULT_DENSE_WEIGHT
 
     def _get_relevant_documents(self, query: str, **kwargs: Any) -> List[Document]:
@@ -418,13 +430,16 @@ class _HybridRetrieverWrapper(BaseRetriever):
         )
         return docs
 
-    async def _aget_relevant_documents(self, query: str, **kwargs: Any) -> List[Document]:
+    async def _aget_relevant_documents(
+        self, query: str, **kwargs: Any
+    ) -> List[Document]:
         return self._get_relevant_documents(query)
 
 
 # ---------------------------------------------------------------------------
 # Score-aware retrieval — XAI hook (all retriever types)
 # ---------------------------------------------------------------------------
+
 
 def retrieve_with_scores(
     question: str,
@@ -462,26 +477,26 @@ def retrieve_with_scores(
         corpus, bm25_index = _get_bm25_components(chunk_size)
 
         query_tokens = _tokenise(question)
-        raw_scores   = bm25_index.get_scores(query_tokens).tolist()
+        raw_scores = bm25_index.get_scores(query_tokens).tolist()
 
-        ranked = sorted(
-            zip(corpus, raw_scores), key=lambda x: x[1], reverse=True
-        )[:k]
-        docs   = [d for d, _ in ranked]
+        ranked = sorted(zip(corpus, raw_scores), key=lambda x: x[1], reverse=True)[:k]
+        docs = [d for d, _ in ranked]
         scores = [round(s, 6) for _, s in ranked]
 
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         logger.debug(
             "BM25 retrieve_with_scores: k=%d, latency=%.1f ms, top=%.4f",
-            k, latency_ms, scores[0] if scores else 0.0,
+            k,
+            latency_ms,
+            scores[0] if scores else 0.0,
         )
         return docs, scores, latency_ms
 
     # Dense (default)
     collection = get_or_create_collection(chunk_size)
-    ef         = get_embedding_function()
+    ef = get_embedding_function()
 
-    t0        = time.perf_counter()
+    t0 = time.perf_counter()
     query_emb = ef([question])
 
     results = collection.query(
@@ -491,18 +506,20 @@ def retrieve_with_scores(
     )
     latency_ms = round((time.perf_counter() - t0) * 1000, 2)
 
-    raw_docs  = results["documents"][0]
+    raw_docs = results["documents"][0]
     raw_metas = results["metadatas"][0]
     raw_dists = results["distances"][0]
 
     scores = [round(1.0 - (d / 2.0), 6) for d in raw_dists]
-    docs   = [
+    docs = [
         Document(page_content=text, metadata=meta)
         for text, meta in zip(raw_docs, raw_metas)
     ]
 
     logger.debug(
         "Dense retrieve_with_scores: k=%d, latency=%.1f ms, top=%.4f",
-        k, latency_ms, scores[0] if scores else 0.0,
+        k,
+        latency_ms,
+        scores[0] if scores else 0.0,
     )
     return docs, scores, latency_ms

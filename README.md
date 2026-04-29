@@ -163,17 +163,30 @@ python -c "from rag_pipeline.vectorstore import collection_stats; print(collecti
 
 ### Capture Baselines
 
-Drift detection (PSI) and XAI consistency both require a reference captured from a known-good configuration. Run this once after ingestion and again after every KB refresh:
+Drift detection (PSI) and XAI consistency both require a reference captured from a known-good configuration. Baselines are persisted by `FileBaselineStore` to `/app/baselines` inside the FastAPI container, backed by the `ragops_baselines` named Docker volume — they survive container restarts and are visible to `/drift/check` immediately after capture.
+
+Run this once after ingestion and again after every KB refresh:
 
 ```bash
 # Full baseline — RAGAS (50 Qs) + PSI embedding baseline + XAI explanation baseline
-python scripts/run_baseline_eval.py
-# or: make baseline
+make baseline                  # runs inside the FastAPI container, writes to the shared volume
+
+# Or directly:
+docker compose exec fastapi python scripts/run_baseline_eval.py
 
 # Partial captures
-python scripts/run_baseline_eval.py --skip-xai    # RAGAS + PSI only
-python scripts/run_baseline_eval.py --skip-eval   # baselines only
+docker compose exec fastapi python scripts/run_baseline_eval.py --skip-xai    # RAGAS + PSI only
+docker compose exec fastapi python scripts/run_baseline_eval.py --skip-eval   # baselines only
+
+# Local host run (writes to ./baselines/ — set BASELINE_DIR=./baselines in .env first)
+make baseline-host
 ```
+
+Artifacts written to `<baseline_dir>`:
+- `embedding_baseline.npy` — PSI reference embedding matrix (shape `(n_docs, 384)`)
+- `xai_baseline.npz` — XAI explanation vectors (one per benchmark question)
+
+To switch backends in tests, set `RAGOPS_BASELINE_STORE=memory` (the unit test conftest does this automatically).
 
 ### Query the Pipeline
 
@@ -284,6 +297,9 @@ All thresholds configured via `.env` → `src/config/settings.py` (Pydantic `Bas
 | RAGAS answer relevancy | 0.75 | Quality gate fail |
 | `PSI_NUM_BINS` | 10 | Histogram binning for PSI |
 | `XAI_BENCHMARK_QUESTIONS` | 10 | Questions used for consistency check |
+| `BASELINE_DIR` | `/app/baselines` | Where `FileBaselineStore` reads/writes baselines |
+| `BASELINE_CHUNK_SIZE` | 512 | ChromaDB collection (`pubmed_{n}`) used for the baseline embedding matrix |
+| `RAGOPS_BASELINE_STORE` | `file` | Switch baseline backend: `file` (default, persistent) \| `memory` (tests only) |
 | `OLLAMA_KEEP_ALIVE` | 24h | Keeps model in GPU VRAM |
 | `OLLAMA_NUM_PARALLEL` | 2 | Concurrent LLM requests |
 | `CHROMA_ALLOW_RESET` | false | `true` only in dev |
@@ -329,7 +345,8 @@ make test-unit      # pytest (mock-based, no docker)
 make test-e2e       # pytest integration tier (needs docker)
 make eval-ci        # RAGAS 5-question smoke eval
 make eval-full      # full 9-config ablation sweep (hours on CPU)
-make baseline       # scripts/run_baseline_eval.py
+make baseline       # docker compose exec fastapi python scripts/run_baseline_eval.py (persists to ragops_baselines volume)
+make baseline-host  # local host run — writes to $BASELINE_DIR (set in .env, e.g. ./baselines)
 make drift-check    # POST /drift/check
 make xai-check      # POST /xai/check
 make lint / format / typecheck
@@ -346,7 +363,7 @@ make clean          # remove caches and coverage artifacts
 - Settings import: always `from src.config.settings import settings` — never read `os.environ` directly in `src/`
 - MLflow tracker import: `from mlops.mlflow_tracker import RAGOpsTracker, RunTrigger`
 - `rag_pipeline/` is the exception — uses direct `os.environ` reads per LangChain convention
-- `BaselineStore` accessed via `get_baseline_store()` singleton factory — never instantiate directly
+- `BaselineStore` accessed via `get_baseline_store()` singleton factory — never instantiate directly. Backend is selected by `RAGOPS_BASELINE_STORE` (`file` default → `FileBaselineStore` persisting to `settings.baseline_dir`; `memory` for tests)
 - Tests colocated with modules (`src/infra/test/...`) or centralized in `tests/`
 
 ## Branch Strategy
@@ -362,7 +379,7 @@ make clean          # remove caches and coverage artifacts
 | Import path | Signature | Returns |
 |---|---|---|
 | `rag_pipeline.chain.query` | `(question, config=None, mlflow_run=False)` | `{answer, source_docs, retrieval_latency_ms, llm_latency_ms, total_latency_ms, retrieval_scores, config}` |
-| `data.ingest.get_embeddings` | `()` | `np.ndarray (n_docs, 384)` |
+| `data.ingest.get_embeddings` | `(chunk_size: int \| None = None)` | `np.ndarray (n_docs, 384)` — defaults to `settings.baseline_chunk_size` |
 | `data.ingest.incremental_upsert` | `(new_docs)` | `int` (chunks upserted) |
 | `evaluation.ragas_runner.run_eval` | `(qa_pairs, config=None, per_question_path=None)` | `{faithfulness, context_recall, answer_relevance, context_precision}` |
 | `evaluation.ragas_runner.run_ci_eval` | `(qa_pairs=None, config=None)` | same as `run_eval` (5-question stub if no pairs) |

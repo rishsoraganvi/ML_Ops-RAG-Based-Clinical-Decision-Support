@@ -156,9 +156,7 @@ class TestMonitorGeneration:
         assert result["current_avg"] == 0.82
         assert result["baseline_avg"] == 0.0
 
-    def test_detects_drift_on_large_drop(
-        self, mock_mlflow_client: MagicMock
-    ) -> None:
+    def test_detects_drift_on_large_drop(self, mock_mlflow_client: MagicMock) -> None:
         experiment = MagicMock()
         experiment.experiment_id = "exp-1"
         mock_mlflow_client.get_experiment_by_name.return_value = experiment
@@ -176,13 +174,13 @@ class TestMonitorGeneration:
         assert result["baseline_avg"] == pytest.approx(0.90)
         assert result["drop_pct"] > 15.0
 
-    def test_stable_when_faithfulness_flat(
-        self, mock_mlflow_client: MagicMock
-    ) -> None:
+    def test_stable_when_faithfulness_flat(self, mock_mlflow_client: MagicMock) -> None:
         experiment = MagicMock()
         experiment.experiment_id = "exp-1"
         mock_mlflow_client.get_experiment_by_name.return_value = experiment
-        mock_mlflow_client.search_runs.return_value = [_fake_run(0.80) for _ in range(6)]
+        mock_mlflow_client.search_runs.return_value = [
+            _fake_run(0.80) for _ in range(6)
+        ]
 
         result = monitor_generation()
 

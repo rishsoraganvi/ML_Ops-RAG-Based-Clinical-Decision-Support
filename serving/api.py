@@ -372,7 +372,9 @@ async def drift_check() -> DriftResponse:
     from mlops.drift_detector import alert, compute_psi
 
     try:
-        embeddings = await asyncio.to_thread(get_embeddings)
+        embeddings = await asyncio.to_thread(
+            get_embeddings, settings.baseline_chunk_size
+        )
         psi_score = await asyncio.to_thread(compute_psi, embeddings)
         report = alert(psi_score)
     except RuntimeError as exc:
@@ -718,3 +720,153 @@ async def explain_endpoint(req: ExplainRequest) -> ExplainResponse:
         hallucination_risk=float(result["hallucination_risk"]),
         hallucination_reason=result["hallucination_reason"],
     )
+
+
+# ---------------------------------------------------------------------------
+# MLflow proxy endpoints — only FastAPI is permitted to talk to MLflow,
+# so the Streamlit dashboard goes through these instead of the tracking server.
+# ---------------------------------------------------------------------------
+
+
+class MLflowRunsResponse(BaseModel):
+    """Recent MLflow runs flattened for the dashboard."""
+
+    runs: list[dict]
+
+
+class MLflowCompareRequest(BaseModel):
+    """Inputs for /mlflow/compare."""
+
+    run_a: str
+    run_b: str
+
+
+class MLflowCompareResponse(BaseModel):
+    """Output of mlops.compare_runs.compare_runs."""
+
+    run_a: dict
+    run_b: dict
+    deltas: dict[str, float]
+    improved: list[str]
+    regressed: list[str]
+    unchanged: list[str]
+
+
+def _list_mlflow_runs_sync(experiment_name: str, max_results: int) -> list[dict]:
+    """Synchronous MLflow run search; runs in a worker thread."""
+    import mlflow
+
+    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+    client = mlflow.MlflowClient()
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        return []
+
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        order_by=["attributes.start_time DESC"],
+        max_results=max_results,
+    )
+
+    records: list[dict] = []
+    for r in runs:
+        row: dict = {"run_id": r.info.run_id, "start_time": r.info.start_time}
+        row.update(r.data.metrics)
+        row.update({f"param_{k}": v for k, v in r.data.params.items()})
+        records.append(row)
+    return records
+
+
+@app.get("/mlflow/runs", response_model=MLflowRunsResponse, tags=["mlflow"])
+async def mlflow_runs(
+    experiment_name: str | None = None,
+    max_results: int = 50,
+) -> MLflowRunsResponse:
+    """List recent MLflow runs for the dashboard. Returns [] if experiment is missing."""
+    import mlflow
+
+    name = experiment_name or settings.mlflow_experiment_name
+    capped = max(1, min(int(max_results), 200))
+
+    try:
+        records = await asyncio.to_thread(_list_mlflow_runs_sync, name, capped)
+    except (ConnectionError, httpx.ConnectError) as exc:
+        logger.error("MLflow runs query cannot reach tracking server", exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"MLflow runs query failed [{type(exc).__name__}]: cannot reach MLflow at "
+                f"{settings.mlflow_tracking_uri}. Underlying error: {exc}. "
+                "Verify the mlflow service via GET /health and `docker compose ps mlflow`."
+            ),
+        ) from exc
+    except mlflow.exceptions.MlflowException as exc:
+        logger.error("MLflow rejected runs query", exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"MLflow runs query failed [MlflowException]: {exc}. "
+                f"Tracking server at {settings.mlflow_tracking_uri} returned an error."
+            ),
+        ) from exc
+    except Exception as exc:
+        logger.error("MLflow runs query failed unexpectedly", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"MLflow runs query failed [{type(exc).__name__}]: {exc}. "
+                "Inspect FastAPI logs (`docker compose logs fastapi`) for the full traceback."
+            ),
+        ) from exc
+
+    return MLflowRunsResponse(runs=records)
+
+
+@app.post("/mlflow/compare", response_model=MLflowCompareResponse, tags=["mlflow"])
+async def mlflow_compare(req: MLflowCompareRequest) -> MLflowCompareResponse:
+    """Compare two MLflow runs side-by-side via mlops.compare_runs."""
+    import mlflow
+
+    from mlops.compare_runs import compare_runs
+
+    try:
+        result = await asyncio.to_thread(compare_runs, req.run_a, req.run_b)
+    except (ConnectionError, httpx.ConnectError) as exc:
+        logger.error("MLflow compare cannot reach tracking server", exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"MLflow compare failed [{type(exc).__name__}]: cannot reach MLflow at "
+                f"{settings.mlflow_tracking_uri}. Underlying error: {exc}."
+            ),
+        ) from exc
+    except mlflow.exceptions.MlflowException as exc:
+        logger.error("MLflow compare could not load run", exc_info=True)
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"MLflow compare failed [MlflowException]: {exc}. "
+                f"One of the requested runs ({req.run_a}, {req.run_b}) is not present "
+                f"on the tracking server at {settings.mlflow_tracking_uri}."
+            ),
+        ) from exc
+    except KeyError as exc:
+        logger.error("MLflow compare hit missing key", exc_info=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"MLflow compare failed [KeyError]: {exc}. The requested run is missing an "
+                "expected field — confirm both runs were logged by RAGOpsTracker."
+            ),
+        ) from exc
+    except Exception as exc:
+        logger.error("MLflow compare failed unexpectedly", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"MLflow compare failed [{type(exc).__name__}]: {exc}. "
+                "Inspect FastAPI logs (`docker compose logs fastapi`) for the full traceback."
+            ),
+        ) from exc
+
+    return MLflowCompareResponse(**result)

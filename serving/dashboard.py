@@ -8,6 +8,9 @@ Panels:
     4. Drift Alert Panel — PSI traffic light, XAI consistency
     5. Experiment Comparison — side-by-side MLflow run comparison
 
+All MLflow access is proxied through the FastAPI service — the dashboard
+never talks to the MLflow tracking server directly.
+
 Run:
     streamlit run serving/dashboard.py
 """
@@ -17,7 +20,6 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-import mlflow
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -31,72 +33,30 @@ logger = logging.getLogger("ragops.dashboard")
 # ---------------------------------------------------------------------------
 
 API_BASE = "http://localhost:8080"
-MLFLOW_TRACKING_URI = "http://localhost:5000"
 MLFLOW_EXPERIMENT = "ragops_clinical"
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# HTTP helpers — every request goes through FastAPI
 # ---------------------------------------------------------------------------
 
 
-@st.cache_data(ttl=60)  # type: ignore[misc]
-def _fetch_mlflow_runs(experiment_name: str, max_results: int = 50) -> pd.DataFrame:
-    """Pull recent MLflow runs as a DataFrame."""
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    client = mlflow.MlflowClient()
-    experiment = client.get_experiment_by_name(experiment_name)
-    if experiment is None:
-        return pd.DataFrame()
-
-    runs = client.search_runs(
-        experiment_ids=[experiment.experiment_id],
-        order_by=["attributes.start_time DESC"],
-        max_results=max_results,
-    )
-
-    if not runs:
-        return pd.DataFrame()
-
-    records = []
-    for r in runs:
-        row = {"run_id": r.info.run_id, "start_time": r.info.start_time}
-        row.update(r.data.metrics)
-        row.update({f"param_{k}": v for k, v in r.data.params.items()})
-        records.append(row)
-
-    df = pd.DataFrame(records)
-    if "start_time" in df.columns:
-        df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
-    return df
-
-
-def _api_post(
+def _surface_request_error(
     endpoint: str,
-    json_body: dict[str, Any] | None = None,
-    timeout: float = 120,
-) -> dict[str, Any]:
-    """POST to FastAPI backend with error handling.
-
-    On failure, surface a descriptive `st.error` that distinguishes:
-      * connection refused (FastAPI itself is down),
-      * client/server timeouts,
-      * HTTP 4xx/5xx with the FastAPI `detail` body parsed out.
-    """
-    url = f"{API_BASE}{endpoint}"
-    try:
-        resp = requests.post(url, json=json_body or {}, timeout=timeout)
-        resp.raise_for_status()
-        return cast(dict[str, Any], resp.json())
-    except requests.ConnectionError as exc:
+    url: str,
+    timeout: float,
+    exc: requests.RequestException,
+) -> None:
+    """Common error -> st.error translator shared by GET and POST helpers."""
+    if isinstance(exc, requests.ConnectionError):
         logger.error("Dashboard could not reach FastAPI at %s", url, exc_info=True)
         st.error(
             f"{endpoint} failed [ConnectionError]: cannot reach FastAPI at {API_BASE}. "
             f"Underlying error: {exc}. Verify the fastapi service is running "
             "(`docker compose ps fastapi`) and accessible on the host port."
         )
-        return {}
-    except requests.Timeout as exc:
+        return
+    if isinstance(exc, requests.Timeout):
         logger.error(
             "Dashboard request to %s timed out after %ss", url, timeout, exc_info=True
         )
@@ -106,8 +66,8 @@ def _api_post(
             "(first request can exceed 60s) or the upstream RAG step is stuck \u2014 "
             "inspect `docker compose logs fastapi`."
         )
-        return {}
-    except requests.HTTPError as exc:
+        return
+    if isinstance(exc, requests.HTTPError):
         status = exc.response.status_code if exc.response is not None else "unknown"
         try:
             body = exc.response.json() if exc.response is not None else {}
@@ -118,14 +78,64 @@ def _api_post(
             "Dashboard got HTTP %s from %s: %s", status, url, detail, exc_info=True
         )
         st.error(f"{endpoint} failed (HTTP {status}): {detail}")
-        return {}
+        return
+    logger.error("Dashboard request to %s failed unexpectedly", url, exc_info=True)
+    st.error(
+        f"{endpoint} failed [{type(exc).__name__}]: {exc}. "
+        "Inspect dashboard and FastAPI logs for the full traceback."
+    )
+
+
+def _api_post(
+    endpoint: str,
+    json_body: dict[str, Any] | None = None,
+    timeout: float = 120,
+) -> dict[str, Any]:
+    """POST to FastAPI backend with error handling."""
+    url = f"{API_BASE}{endpoint}"
+    try:
+        resp = requests.post(url, json=json_body or {}, timeout=timeout)
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
     except requests.RequestException as exc:
-        logger.error("Dashboard request to %s failed unexpectedly", url, exc_info=True)
-        st.error(
-            f"{endpoint} failed [{type(exc).__name__}]: {exc}. "
-            "Inspect dashboard and FastAPI logs for the full traceback."
-        )
+        _surface_request_error(endpoint, url, timeout, exc)
         return {}
+
+
+def _api_get(
+    endpoint: str,
+    params: dict[str, Any] | None = None,
+    timeout: float = 30,
+) -> dict[str, Any]:
+    """GET from FastAPI backend with error handling."""
+    url = f"{API_BASE}{endpoint}"
+    try:
+        resp = requests.get(url, params=params or {}, timeout=timeout)
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+    except requests.RequestException as exc:
+        _surface_request_error(endpoint, url, timeout, exc)
+        return {}
+
+
+@st.cache_data(ttl=60)  # type: ignore[misc]
+def _fetch_mlflow_runs(experiment_name: str, max_results: int = 50) -> pd.DataFrame:
+    """Pull recent MLflow runs as a DataFrame via the FastAPI proxy."""
+    payload = _api_get(
+        "/mlflow/runs",
+        params={"experiment_name": experiment_name, "max_results": max_results},
+    )
+    if not payload:
+        return pd.DataFrame()
+
+    records = payload.get("runs", [])
+    if not records:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(records)
+    if "start_time" in df.columns:
+        df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -336,17 +346,13 @@ def _render_explanation(exp: dict[str, Any], source_docs: list[dict[str, Any]]) 
 
 
 def _render_ragas_panel() -> None:
-    """RAGAS metric time series from MLflow."""
+    """RAGAS metric time series from MLflow (via FastAPI proxy)."""
     st.header("RAGAS Metrics Over Time")
 
     df = _fetch_mlflow_runs(MLFLOW_EXPERIMENT)
 
     if df.empty:
-        st.warning(
-            f"No MLflow runs found under experiment `{MLFLOW_EXPERIMENT}` at "
-            f"{MLFLOW_TRACKING_URI}. Run `make eval-ci` (or POST /evaluate) to create "
-            "the first run, then refresh this panel."
-        )
+        st.warning(f"No runs found for experiment: {MLFLOW_EXPERIMENT}")
         return
 
     ragas_metrics = [
@@ -430,16 +436,15 @@ def _render_drift_panel() -> None:
 
 
 def _render_comparison_panel() -> None:
-    """Side-by-side MLflow run comparison."""
+    """Side-by-side MLflow run comparison (via FastAPI proxy)."""
     st.header("Experiment Comparison")
 
     df = _fetch_mlflow_runs(MLFLOW_EXPERIMENT)
 
     if df.empty:
         st.warning(
-            f"No MLflow runs found under experiment `{MLFLOW_EXPERIMENT}` at "
-            f"{MLFLOW_TRACKING_URI}. Run `make eval-ci` to create at least two runs "
-            "before using the comparison view."
+            f"No MLflow runs found under experiment `{MLFLOW_EXPERIMENT}`. "
+            "Run `make eval-ci` to create at least two runs before using this view."
         )
         return
 
@@ -452,77 +457,60 @@ def _render_comparison_panel() -> None:
         run_b = st.selectbox("Run B", run_ids, index=min(1, len(run_ids) - 1))
 
     if st.button("Compare Runs") and run_a and run_b:
-        from mlops.compare_runs import compare_runs
-
         with st.spinner("Comparing runs..."):
-            try:
-                result = compare_runs(run_a, run_b)
-            except (
-                FileNotFoundError,
-                KeyError,
-                mlflow.exceptions.MlflowException,
-            ) as exc:
-                logger.error("Run comparison failed to locate run", exc_info=True)
-                st.error(
-                    f"Comparison failed [{type(exc).__name__}]: one of the selected "
-                    f"runs ({run_a}, {run_b}) could not be loaded from MLflow. "
-                    f"Underlying error: {exc}. Confirm both runs exist under the "
-                    f"`{MLFLOW_EXPERIMENT}` experiment at {MLFLOW_TRACKING_URI}."
-                )
-                return
-            except Exception as exc:
-                logger.error("Run comparison failed unexpectedly", exc_info=True)
-                st.error(
-                    f"Comparison failed [{type(exc).__name__}]: {exc}. "
-                    "Check the dashboard logs for the full traceback."
-                )
-                return
+            result = _api_post(
+                "/mlflow/compare",
+                {"run_a": run_a, "run_b": run_b},
+                timeout=60,
+            )
 
-        if result:
-            st.subheader("Metric Deltas (Run B - Run A)")
+        if not result:
+            return
 
-            deltas = result.get("deltas", {})
-            if deltas:
-                delta_df = pd.DataFrame(
-                    [
-                        {
-                            "Metric": k,
-                            "Run A": result["run_a"]["metrics"].get(k, 0),
-                            "Run B": result["run_b"]["metrics"].get(k, 0),
-                            "Delta": v,
-                        }
-                        for k, v in deltas.items()
-                    ]
-                )
-                st.dataframe(delta_df, use_container_width=True)
+        st.subheader("Metric Deltas (Run B - Run A)")
 
-                fig = go.Figure(
-                    data=[
-                        go.Bar(
-                            name="Run A",
-                            x=delta_df["Metric"],
-                            y=delta_df["Run A"],
-                        ),
-                        go.Bar(
-                            name="Run B",
-                            x=delta_df["Metric"],
-                            y=delta_df["Run B"],
-                        ),
-                    ]
-                )
-                fig.update_layout(
-                    barmode="group",
-                    template="plotly_dark",
-                    title="Side-by-Side Metrics",
-                )
-                st.plotly_chart(fig, use_container_width=True)
+        deltas = result.get("deltas", {})
+        if deltas:
+            delta_df = pd.DataFrame(
+                [
+                    {
+                        "Metric": k,
+                        "Run A": result["run_a"]["metrics"].get(k, 0),
+                        "Run B": result["run_b"]["metrics"].get(k, 0),
+                        "Delta": v,
+                    }
+                    for k, v in deltas.items()
+                ]
+            )
+            st.dataframe(delta_df, use_container_width=True)
 
-            improved = result.get("improved", [])
-            regressed = result.get("regressed", [])
-            if improved:
-                st.success(f"Improved: {', '.join(improved)}")
-            if regressed:
-                st.error(f"Regressed: {', '.join(regressed)}")
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        name="Run A",
+                        x=delta_df["Metric"],
+                        y=delta_df["Run A"],
+                    ),
+                    go.Bar(
+                        name="Run B",
+                        x=delta_df["Metric"],
+                        y=delta_df["Run B"],
+                    ),
+                ]
+            )
+            fig.update_layout(
+                barmode="group",
+                template="plotly_dark",
+                title="Side-by-Side Metrics",
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        improved = result.get("improved", [])
+        regressed = result.get("regressed", [])
+        if improved:
+            st.success(f"Improved: {', '.join(improved)}")
+        if regressed:
+            st.error(f"Regressed: {', '.join(regressed)}")
 
 
 # ---------------------------------------------------------------------------

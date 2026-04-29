@@ -58,9 +58,9 @@ def test_full_pipeline() -> None:
         for i in range(10)
     ]
     summary = ingest_documents(sample_docs, chunk_size=512)
-    assert summary.get("chunks_added", 0) >= 1 or summary.get("total_chunks", 0) >= 1, (
-        f"ingest_documents returned unexpected summary: {summary}"
-    )
+    assert (
+        summary.get("chunks_added", 0) >= 1 or summary.get("total_chunks", 0) >= 1
+    ), f"ingest_documents returned unexpected summary: {summary}"
 
     # ── 3. Run three queries through the chain ─────────────────────────────
     from rag_pipeline.chain import query as rag_query
@@ -73,9 +73,9 @@ def test_full_pipeline() -> None:
     for q in questions:
         result = rag_query(q)
         assert result["answer"], f"empty answer for question: {q}"
-        assert len(result["retrieval_scores"]) >= 1, (
-            f"expected at least one retrieval score for: {q}"
-        )
+        assert (
+            len(result["retrieval_scores"]) >= 1
+        ), f"expected at least one retrieval score for: {q}"
         assert len(result["source_docs"]) >= 1
 
     # ── 4. RAGAS CI evaluation — all four metrics must be non-negative ────
@@ -83,14 +83,21 @@ def test_full_pipeline() -> None:
 
     t_before = time.time()
     scores = run_ci_eval()
-    for metric in ("faithfulness", "context_recall", "answer_relevance", "context_precision"):
+    for metric in (
+        "faithfulness",
+        "context_recall",
+        "answer_relevance",
+        "context_precision",
+    ):
         assert metric in scores, f"missing RAGAS metric: {metric}"
         assert scores[metric] >= 0.0, f"RAGAS {metric} was negative: {scores[metric]}"
 
     # ── 5. MLflow must have logged at least one run in the last 60 s ──────
     import mlflow
 
-    recent_cutoff = datetime.now(timezone.utc) - timedelta(seconds=max(120, int(time.time() - t_before) + 60))
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(
+        seconds=max(120, int(time.time() - t_before) + 60)
+    )
     runs = mlflow.search_runs(
         experiment_names=["ragops-ragas-eval"],
         filter_string=f"attributes.start_time >= {int(recent_cutoff.timestamp() * 1000)}",

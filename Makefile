@@ -17,7 +17,7 @@
 # =============================================================================
 
 .PHONY: help setup up down logs healthcheck lint format typecheck \
-        test-unit test-e2e test eval-ci eval-full baseline \
+        test-unit test-e2e test eval-ci eval-full baseline baseline-host \
         drift-check xai-check clean
 
 PYTHON ?= python
@@ -94,6 +94,9 @@ eval-full:
 		--workers 1
 
 baseline:
+	docker compose exec fastapi python scripts/run_baseline_eval.py
+
+baseline-host:
 	$(PYTHON) scripts/run_baseline_eval.py
 
 # ── Live monitoring probes ───────────────────────────────────────────────────

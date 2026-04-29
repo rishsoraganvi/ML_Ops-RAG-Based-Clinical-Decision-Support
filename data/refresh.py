@@ -18,11 +18,9 @@ QUERIES = [
 
 
 def build_date_query(query: str, days_back: int) -> str:
-    end   = datetime.today()
+    end = datetime.today()
     start = end - timedelta(days=days_back)
-    date_filter = (
-        f"{start.strftime('%Y/%m/%d')}:{end.strftime('%Y/%m/%d')}[dp]"
-    )
+    date_filter = f"{start.strftime('%Y/%m/%d')}:{end.strftime('%Y/%m/%d')}[dp]"
     return f"({query}) AND {date_filter}"
 
 
@@ -56,12 +54,16 @@ def fetch_new_records(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Refresh PubMed data")
     parser.add_argument(
-        "--days-back", type=int, default=7,
-        help="How many days back to fetch (default: 7)"
+        "--days-back",
+        type=int,
+        default=7,
+        help="How many days back to fetch (default: 7)",
     )
     parser.add_argument(
-        "--max-per-query", type=int, default=100,
-        help="Max new records per query (default: 100)"
+        "--max-per-query",
+        type=int,
+        default=100,
+        help="Max new records per query (default: 100)",
     )
     args = parser.parse_args()
 
@@ -77,7 +79,7 @@ def main() -> None:
             print("  No new records found.\n")
             continue
 
-        xml     = fetch_records_xml(pmids)
+        xml = fetch_records_xml(pmids)
         records = parse_xml_to_records(xml)
 
         if not records:
