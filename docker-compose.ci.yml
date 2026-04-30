@@ -1,8 +1,10 @@
 services:
   ollama:
-    # Override the production GPU reservation block for CI
+    # Force CPU mode on GitHub-hosted runners (no NVIDIA runtime)
     deploy: {}
-
-    # Force CPU usage (prevents ollama from trying to use GPU)
     environment:
-      OLLAMA_NUM_GPU: "0"
+      OLLAMA_HOST: "0.0.0.0"
+    # Optional: keep volumes consistent with your base compose if needed
+    volumes:
+      - ./ollama_data:/root/.ollama
+      - ./docker/ollama/pull_model.sh:/pull_model.sh:ro
