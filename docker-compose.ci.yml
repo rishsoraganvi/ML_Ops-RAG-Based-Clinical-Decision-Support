@@ -1,0 +1,8 @@
+services:
+  ollama:
+    # Override the production GPU reservation block for CI
+    deploy: {}
+
+    # Force CPU usage (prevents ollama from trying to use GPU)
+    environment:
+      OLLAMA_NUM_GPU: "0"

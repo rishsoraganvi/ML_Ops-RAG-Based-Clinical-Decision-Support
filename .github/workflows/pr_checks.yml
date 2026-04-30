@@ -200,7 +200,7 @@ jobs:
 
       - name: Check disk space after cleanup
         run: df -h
-        
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -214,7 +214,7 @@ jobs:
           pip install -r docker/fastapi/requirements.txt
 
       - name: Start docker-compose stack
-        run: docker compose up -d chromadb mlflow ollama fastapi
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d chromadb mlflow ollama fastapi
 
       - name: Pull small LLM for CI
         run: docker compose exec -T ollama ollama pull llama3.2:1b
