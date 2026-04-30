@@ -42,7 +42,7 @@ VALID_CHUNK_SIZES = (256, 512, 1024)
 @lru_cache(maxsize=1)
 def get_embedding_function() -> EmbeddingFunction:
     """Return a cached SentenceTransformer embedding function (singleton)."""
-    return embedding_functions.SentenceTransformerEmbeddingFunction(  # type: ignore[no-any-return]
+    return embedding_functions.SentenceTransformerEmbeddingFunction(  # type: ignore[attr-defined,no-any-return]
         model_name=EMBED_MODEL
     )
 
@@ -104,7 +104,7 @@ def get_or_create_collection(
 
     collection = client.get_or_create_collection(
         name=name,
-        embedding_function=ef,
+        embedding_function=ef,  # type: ignore[arg-type]
         metadata={"hnsw:space": "cosine"},  # cosine similarity for dense retrieval
     )
     logger.info(

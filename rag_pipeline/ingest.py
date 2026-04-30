@@ -17,7 +17,7 @@ import hashlib
 import logging
 import time
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Mapping, cast
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
@@ -165,6 +165,7 @@ def ingest_documents(
     ids = [_chunk_id(c.page_content, c.metadata) for c in chunks]
     texts = [c.page_content for c in chunks]
     metadatas = [_sanitize_metadata(c.metadata) for c in chunks]
+    metadatas_mapping = cast(list[Mapping[str, str | int | float | bool]], metadatas)
 
     # ── 3. Batch upsert ───────────────────────────────────────────────────
     t0 = time.perf_counter()
@@ -175,7 +176,7 @@ def ingest_documents(
         collection.upsert(
             ids=ids[start:end],
             documents=texts[start:end],
-            metadatas=metadatas[start:end],
+            metadatas=metadatas_mapping[start:end],
         )
         total_upserted += len(ids[start:end])
         logger.debug("Upserted batch %d–%d.", start, end)

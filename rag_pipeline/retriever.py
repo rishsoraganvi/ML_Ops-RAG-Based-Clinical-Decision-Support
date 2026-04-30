@@ -21,6 +21,7 @@ import re
 import time
 from typing import Any, List, Tuple, Optional, cast
 
+import numpy as np
 from langchain.schema import BaseRetriever, Document
 from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever as LangChainBM25Retriever
@@ -85,7 +86,7 @@ def _chroma_vectorstore(chunk_size: int) -> Chroma:
     vectorstore = Chroma(
         client=get_chroma_client(),
         collection_name=collection.name,
-        embedding_function=ef,
+        embedding_function=ef,  # type: ignore[arg-type]
     )
     return vectorstore
 
@@ -296,7 +297,7 @@ def hybrid_retrieve(
     # 1. Dense candidates (top-20)
     collection = get_or_create_collection(chunk_size)
     ef = get_embedding_function()
-    query_emb = ef([question])
+    query_emb = np.asarray(ef([question]), dtype=np.float32)
 
     dense_results = collection.query(
         query_embeddings=query_emb,
@@ -496,7 +497,7 @@ def retrieve_with_scores(
     ef = get_embedding_function()
 
     t0 = time.perf_counter()
-    query_emb = ef([question])
+    query_emb = np.asarray(ef([question]), dtype=np.float32)
 
     results = collection.query(
         query_embeddings=query_emb,
