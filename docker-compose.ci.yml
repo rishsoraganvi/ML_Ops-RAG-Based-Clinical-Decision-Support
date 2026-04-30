@@ -1,10 +1,36 @@
 services:
   ollama:
-    # Force CPU mode on GitHub-hosted runners (no NVIDIA runtime)
+    # CI runners (ubuntu-latest) have no NVIDIA runtime/GPU.
+    # This override removes GPU reservations and forces CPU execution.
+
+    # Critical: override the GPU reservation block from base compose
     deploy: {}
+
     environment:
       OLLAMA_HOST: "0.0.0.0"
-    # Optional: keep volumes consistent with your base compose if needed
+      OLLAMA_KEEP_ALIVE: "10m"     # keep it lighter in CI (optional)
+      OLLAMA_NUM_PARALLEL: "1"     # reduce load in CI (optional)
+      OLLAMA_NUM_GPU: "0"          # force CPU
+
+    # Keep the rest consistent so your workflow steps still work
+    ports:
+      - "11434:11434"
+
     volumes:
       - ./ollama_data:/root/.ollama
       - ./docker/ollama/pull_model.sh:/pull_model.sh:ro
+
+    # Keep your startup behavior (serve + pull model)
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      ollama serve &
+      sleep 5 &&
+      bash /pull_model.sh &&
+      wait
+
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 300s
