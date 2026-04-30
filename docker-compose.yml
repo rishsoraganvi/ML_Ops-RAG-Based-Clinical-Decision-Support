@@ -1,6 +1,6 @@
 # =============================================================================
 # RAGOps — Production Docker Compose
-# Services: ChromaDB | MLflow (SQLite) | Ollama (NVIDIA GPU) | FastAPI
+# Services: ChromaDB | MLflow (SQLite) | Ollama | FastAPI
 # =============================================================================
 
 version: "3.9"
@@ -80,7 +80,7 @@ services:
       retries: 5
       start_period: 60s
 
-  # ── 3. Ollama (NVIDIA GPU) ─────────────────────────────────────────────────
+  # ── 3. Ollama ──────────────────────────────────────────────────────────────
   ollama:
     image: ollama/ollama:${OLLAMA_VERSION:-latest}
     container_name: ragops_ollama
@@ -97,14 +97,6 @@ services:
       - ./docker/ollama/pull_model.sh:/pull_model.sh:ro
     networks:
       - ragops_net
-    # ── NVIDIA GPU passthrough ──────────────────────────────────────────────
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${NVIDIA_GPU_COUNT:-1}
-              capabilities: [gpu]
     # Run model pull in background after container starts
     entrypoint: ["/bin/bash", "-c"]
     command: >

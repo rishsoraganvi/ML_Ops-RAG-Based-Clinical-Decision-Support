@@ -1,0 +1,18 @@
+# =============================================================================
+# RAGOps — GPU override (NVIDIA)
+# Merge on top of docker-compose.yml to enable NVIDIA GPU passthrough for
+# Ollama on local machines that have the NVIDIA Container Toolkit installed.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# =============================================================================
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${NVIDIA_GPU_COUNT:-1}
+              capabilities: [gpu]

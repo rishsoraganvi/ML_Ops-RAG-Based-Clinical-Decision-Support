@@ -24,7 +24,7 @@ Targeting research venues: **IEEE ICHI**, **ACL Clinical NLP Workshop**, and **M
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
 │  │  ChromaDB    │  │   MLflow     │  │  Ollama          │  │
 │  │  :8000       │  │   :5000      │  │  :11434          │  │
-│  │              │  │              │  │  [NVIDIA GPU]    │  │
+│  │              │  │              │  │  (CPU/GPU)       │  │
 │  │  chroma_data │  │  mlflow_data │  │  ollama_data     │  │
 │  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘  │
 │         │                 │                    │            │
@@ -48,7 +48,7 @@ Targeting research venues: **IEEE ICHI**, **ACL Clinical NLP Workshop**, and **M
 |-----------|-------------------|-----------|------------------------------|
 | ChromaDB  | `chromadb:8000`   | 8000      | Vector store                 |
 | MLflow    | `mlflow:5000`     | 5000      | SQLite backend + artifact UI |
-| Ollama    | `ollama:11434`    | 11434     | LLaMA-3.2-3B on NVIDIA GPU   |
+| Ollama    | `ollama:11434`    | 11434     | LLaMA-3.2-3B (CPU by default; GPU opt-in) |
 | FastAPI   | `fastapi:8080`    | 8080      | RAGOps orchestration layer   |
 | Streamlit | —                 | 8501      | Dashboard (run separately)   |
 
@@ -103,7 +103,8 @@ ragops/
 ├── .github/workflows/
 │   ├── pr_checks.yml   #   lint, typecheck, unit tests, docker-build, ragas-ci-eval
 │   └── refresh.yml     #   Mon 06:07 UTC — auto KB refresh via drift trigger
-├── docker-compose.yml
+├── docker-compose.yml      # CPU-safe default (used by CI)
+├── docker-compose.gpu.yml  # GPU override — merge on top for NVIDIA opt-in
 ├── Makefile
 └── env.example
 ```
@@ -115,12 +116,12 @@ ragops/
 | Tool | Version | Check |
 |------|---------|-------|
 | Docker + Compose | 24+ | `docker compose version` |
-| NVIDIA Driver | 525+ | `nvidia-smi` |
-| NVIDIA Container Toolkit | 1.13+ | `docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi` |
+| NVIDIA Driver | 525+ | `nvidia-smi` *(GPU users only)* |
+| NVIDIA Container Toolkit | 1.13+ | `docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi` *(GPU users only)* |
 | Python | 3.11 | `python --version` (local dev/tests only) |
 | Git | 2.x | `git --version` |
 
-**GPU:** ~4 GB VRAM recommended for LLaMA-3.2-3B. For very low-VRAM or CPU-only machines, set `OLLAMA_MODEL=llama3.2:1b` in `.env`.
+**GPU (optional):** ~4 GB VRAM recommended for LLaMA-3.2-3B. For CPU-only or CI environments the default compose runs without any GPU requirement. For very low-VRAM machines, set `OLLAMA_MODEL=llama3.2:1b` in `.env`.
 
 ### Start All Services
 
@@ -128,9 +129,12 @@ ragops/
 # 1. Configure
 cp env.example .env
 
-# 2. Start (Ollama pulls ~2.0 GB LLaMA-3.2-3B on first boot)
+# 2a. Start — CPU (default, works everywhere including CI)
 docker compose up -d
 # or: make up
+
+# 2b. Start — GPU (local machines with NVIDIA Container Toolkit)
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 
 # 3. Wait for healthy
 python scripts/healthcheck.py --timeout 300
