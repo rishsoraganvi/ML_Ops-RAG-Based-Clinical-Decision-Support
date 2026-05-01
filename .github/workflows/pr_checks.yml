@@ -214,7 +214,7 @@ jobs:
           pip install -r docker/fastapi/requirements.txt
 
       - name: Start docker-compose stack
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --no-build chromadb mlflow ollama fastapi
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build chromadb mlflow ollama fastapi
 
       - name: Pull small LLM for CI
         run: docker compose exec -T ollama ollama pull llama3.2:1b
