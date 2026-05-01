@@ -1,6 +1,6 @@
 # RAGOps — Production MLOps for RAG-Based Clinical Decision Support
 
-A production-grade MLOps framework that combines a Retrieval-Augmented Generation (RAG) pipeline with automated drift detection, explainable AI, and CI/CD quality gates — built on PubMed medical literature for clinical decision support.
+A production-grade MLOps framework that combines a Retrieval-Augmented Generation (RAG) pipeline with automated drift detection, explainable AI, and CI/CD quality gates — built on PubMed medical [...]
 
 Targeting research venues: **IEEE ICHI**, **ACL Clinical NLP Workshop**, and **MLSys Workshop**.
 
@@ -163,7 +163,7 @@ python -c "from rag_pipeline.vectorstore import collection_stats; print(collecti
 
 ### Capture Baselines
 
-Drift detection (PSI) and XAI consistency both require a reference captured from a known-good configuration. Baselines are persisted by `FileBaselineStore` to `/app/baselines` inside the FastAPI container, backed by the `ragops_baselines` named Docker volume — they survive container restarts and are visible to `/drift/check` immediately after capture.
+Drift detection (PSI) and XAI consistency both require a reference captured from a known-good configuration. Baselines are persisted by `FileBaselineStore` to `/app/baselines` inside the FastAPI [...]
 
 Run this once after ingestion and again after every KB refresh:
 
@@ -237,7 +237,7 @@ Interactive docs at <http://localhost:8080/docs> (Swagger UI).
 
 ## Testing
 
-Two tiers: **mock-based unit tests** (CI-safe, no Docker) and **end-to-end integration tests** (opt-in, needs docker stack). The `integration` pytest marker is registered in `pytest.ini` and gated by `RAGOPS_E2E=1`.
+Two tiers: **mock-based unit tests** (CI-safe, no Docker) and **end-to-end integration tests** (opt-in, needs docker stack). The `integration` pytest marker is registered in `pytest.ini` and gate[...]
 
 ```bash
 # Unit tests — no Docker required (SQLite + stubbed Ollama/Chroma)
@@ -312,7 +312,7 @@ See `env.example` for the full list.
 |----------|---------|--------------|
 | `.github/workflows/pr_checks.yml` | PR to `main`/`develop`, push to `develop` | ruff + mypy + no-print guard + unit tests (80% coverage) + docker-build |
 | `pr_checks.yml` — `ragas-ci-eval` job | PRs to `main`/`develop` | Brings up compose stack, pulls `llama3.2:1b`, gates on `faithfulness ≥ 0.70` and `context_recall ≥ 0.65` |
-| `.github/workflows/refresh.yml` | Cron `7 6 * * 1` (Mon 06:07 UTC) + manual dispatch | Runs `mlops.refresh_trigger.trigger_refresh`; on manual runs posts before/after metric comment on the specified issue |
+| `.github/workflows/refresh.yml` | Cron `7 6 * * 1` (Mon 06:07 UTC) + manual dispatch | Runs `mlops.refresh_trigger.trigger_refresh`; on manual runs posts before/after metric comment on the spec[...]
 
 ## Named Volumes & Logs
 
@@ -363,7 +363,7 @@ make clean          # remove caches and coverage artifacts
 - Settings import: always `from src.config.settings import settings` — never read `os.environ` directly in `src/`
 - MLflow tracker import: `from mlops.mlflow_tracker import RAGOpsTracker, RunTrigger`
 - `rag_pipeline/` is the exception — uses direct `os.environ` reads per LangChain convention
-- `BaselineStore` accessed via `get_baseline_store()` singleton factory — never instantiate directly. Backend is selected by `RAGOPS_BASELINE_STORE` (`file` default → `FileBaselineStore` persisting to `settings.baseline_dir`; `memory` for tests)
+- `BaselineStore` accessed via `get_baseline_store()` singleton factory — never instantiate directly. Backend is selected by `RAGOPS_BASELINE_STORE` (`file` default → `FileBaselineStore` pers[...]
 - Tests colocated with modules (`src/infra/test/...`) or centralized in `tests/`
 
 ## Branch Strategy
@@ -383,13 +383,13 @@ make clean          # remove caches and coverage artifacts
 | `data.ingest.incremental_upsert` | `(new_docs)` | `int` (chunks upserted) |
 | `evaluation.ragas_runner.run_eval` | `(qa_pairs, config=None, per_question_path=None)` | `{faithfulness, context_recall, answer_relevance, context_precision}` |
 | `evaluation.ragas_runner.run_ci_eval` | `(qa_pairs=None, config=None)` | same as `run_eval` (5-question stub if no pairs) |
-| `evaluation.explainability.explain` | `(question, source_docs, retrieval_scores)` | `{shap_values, token_attributions, term_attribution, explanation_vector, hallucination_risk, hallucination_reason}` |
+| `evaluation.explainability.explain` | `(question, source_docs, retrieval_scores)` | `{shap_values, token_attributions, term_attribution, explanation_vector, hallucination_risk, hallucination_re[...]` |
 | `mlops.drift_detector.compute_psi` | `(current_embeddings)` | `float` (mean PSI across 384 dims) |
 | `mlops.explanation_monitor.compute_consistency` | `(current_vectors=None, baseline_vectors=None)` | `float` (mean cosine similarity 0–1) |
 
 ## Current Status
 
-**Done:** Docker environment, MLflow tracker with quality gates, full RAG pipeline (dense/BM25/hybrid + cross-encoder reranker), PubMed ETL (3,706 heart disease abstracts), RAGAS evaluation, 9-config ablation runner, 50-question benchmark, PSI drift detector, XAI consistency monitor, MLflow run comparison, KB refresh trigger, FastAPI orchestration (all 6 endpoints wired), Streamlit 5-panel dashboard, XAI layer (`evaluation/explainability.py`), CI pipeline with RAGAS gates, refresh workflow, Makefile.
+**Done:** Docker environment, MLflow tracker with quality gates, full RAG pipeline (dense/BM25/hybrid + cross-encoder reranker), PubMed ETL (3,706 heart disease abstracts), RAGAS evaluation, 9-co[...]
 
 **Paper deliverables in progress:** ablation `results.csv`, Tables 1–3, Figures 1–3, demo video, `DATA_CARD.md`, `v1.0.0` tag + DVC data push.
 
