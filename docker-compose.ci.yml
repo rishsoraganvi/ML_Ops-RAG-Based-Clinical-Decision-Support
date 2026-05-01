@@ -23,10 +23,10 @@ services:
     # Keep your startup behavior (serve + pull model)
     entrypoint: ["/bin/bash", "-c"]
     command: >
-      ollama serve &
+      "ollama serve &
       sleep 5 &&
       bash /pull_model.sh &&
-      wait
+      wait"
 
     healthcheck:
       test: ["CMD-SHELL", "ollama ps >/dev/null 2>&1 || exit 1"]
