@@ -179,11 +179,10 @@ def _build_ragas_llm() -> LangchainLLMWrapper:
         model=OLLAMA_MODEL,
         base_url=OLLAMA_BASE_URL,
         temperature=0,  # deterministic judge
-        num_predict=512,
-        num_ctx=2048,  # Restrict context window to match the model's training limit
-        format="json",  # Force Ollama to only output valid JSON for RAGAS
-        # Long timeout — needed for local models on CPU. Set via env var
-        # OLLAMA_TIMEOUT (not a constructor arg in current langchain-ollama).
+        num_predict=2048,  # Increased from 512 to prevent JSON truncation
+        num_ctx=2048,
+        format="json",
+        timeout=600,  # Added explicit client timeout matching RunConfig
     )
     return LangchainLLMWrapper(llm)
 
