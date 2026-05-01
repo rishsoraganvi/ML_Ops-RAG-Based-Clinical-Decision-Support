@@ -214,7 +214,7 @@ jobs:
           pip install -r docker/fastapi/requirements.txt
 
       - name: Start docker-compose stack
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d chromadb mlflow ollama fastapi
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --no-build chromadb mlflow ollama fastapi
 
       - name: Pull small LLM for CI
         run: docker compose exec -T ollama ollama pull llama3.2:1b
@@ -243,6 +243,10 @@ jobs:
             mlruns/
           retention-days: 7
           if-no-files-found: ignore
+      
+      - name: Dump Ollama logs on failure
+        if: failure()
+        run: docker compose logs ollama
 
       - name: Dump FastAPI logs on failure
         if: failure()
