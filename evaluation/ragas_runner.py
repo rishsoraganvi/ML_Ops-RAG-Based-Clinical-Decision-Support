@@ -182,7 +182,6 @@ def _build_ragas_llm() -> LangchainLLMWrapper:
         num_predict=2048,  # Increased from 512 to prevent JSON truncation
         num_ctx=2048,
         format="json",
-        timeout=600,  # Added explicit client timeout matching RunConfig
     )
     return LangchainLLMWrapper(llm)
 
