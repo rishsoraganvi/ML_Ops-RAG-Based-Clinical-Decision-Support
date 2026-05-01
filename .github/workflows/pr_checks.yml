@@ -217,14 +217,14 @@ jobs:
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build chromadb mlflow ollama fastapi
 
       - name: Pull small LLM for CI
-        run: |
-          docker compose exec -T ollama ollama pull llama3.2:1b
-          docker compose exec -T ollama ollama pull nomic-embed-text
+        run: docker compose exec -T ollama ollama pull llama3
 
       - name: Wait for services healthy
         run: python scripts/healthcheck.py --timeout 180 --poll-interval 5
 
       - name: Run RAGAS CI evaluation + quality gate
+        env:
+          OLLAMA_MODEL: llama3
         run: |
           python -c "
           from evaluation.ragas_runner import run_ci_eval
