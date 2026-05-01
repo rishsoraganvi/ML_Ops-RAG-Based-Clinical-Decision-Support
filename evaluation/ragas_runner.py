@@ -141,6 +141,7 @@ def _build_ragas_llm() -> LangchainLLMWrapper:
         base_url=OLLAMA_BASE_URL,
         temperature=0,  # deterministic judge
         num_predict=512,
+        num_ctx=2048,  # <-- Add this line to restrict context window for CI
         # Long timeout — needed for local models on CPU. Set via env var
         # OLLAMA_TIMEOUT (not a constructor arg in current langchain-ollama).
     )
