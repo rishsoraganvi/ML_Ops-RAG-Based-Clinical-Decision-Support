@@ -120,7 +120,7 @@ ragops/
 | Python | 3.11 | `python --version` (local dev/tests only) |
 | Git | 2.x | `git --version` |
 
-**GPU:** ~4 GB VRAM recommended for LLaMA-3.2-3B. For very low-VRAM or CPU-only machines, set `OLLAMA_MODEL=llama3.2:1b` in `.env`.
+**GPU:** ~4 GB VRAM recommended for LLaMA-3.2-3B. For very low-VRAM or CPU-only machines, set `OLLAMA_MODEL=phi3:mini` in `.env`.
 
 ### Start All Services
 
@@ -268,7 +268,7 @@ mypy src/ mlops/ serving/ --ignore-missing-imports --strict --exclude src/infra/
 ## Evaluation & Ablations
 
 ```bash
-# Fast CI smoke eval (5 questions)
+# Fast CI smoke eval (3 questions, Phi-3 judge)
 make eval-ci
 
 # Inspect the 9-config ablation grid without running the LLM
@@ -279,6 +279,15 @@ python evaluation/ablations/run_ablations.py \
     --qa-file evaluation/benchmarks/qa_pairs.json --workers 1
 # or: make eval-full
 ```
+
+**RAGAS hardening (CI):**
+
+- **Judge model:** `phi3:mini` (set via `OLLAMA_MODEL` in `docker-compose.ci.yml` and `pr_checks.yml`). Production `/query` continues to use `llama3.2:3b`.
+- **Embedding model:** `nomic-embed-text` (`OLLAMA_EMBED_MODEL`). Required for `context_precision` and `answer_relevancy` — pulled inside the Ollama container by `docker/ollama/pull_model.sh` so RAGAS never crashes mid-run on a missing model.
+- **Strict JSON output:** the Ollama judge runs with `format="json"` and `temperature=0`. The runner captures RAGAS / LangChain warnings during `evaluate()` and **raises** if any output-parsing failure (`OutputParserException`, `Failed to parse`, `JSONDecodeError`, `invalid json`) is detected — so silent NaN scores cannot reach the quality gate.
+- **NaN guard:** per-metric `nanmean` with a hard error if a metric column is entirely NaN (names the offending metric and model).
+- **Low parallelism:** `RunConfig(max_workers=1, timeout=600, max_retries=3)` — sequential evaluation prevents Ollama timeouts on small CI runners.
+- **Dataset cap:** `CI_SAMPLE_SIZE = 3` questions per CI run (down from 5).
 
 See `evaluation/ablations/RUNBOOK.md` for the sweep used to populate Paper Table 1 and produce weak labels for the hallucination classifier.
 
@@ -311,7 +320,7 @@ See `env.example` for the full list.
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
 | `.github/workflows/pr_checks.yml` | PR to `main`/`develop`, push to `develop` | ruff + mypy + no-print guard + unit tests (80% coverage) + docker-build |
-| `pr_checks.yml` — `ragas-ci-eval` job | PRs to `main`/`develop` | Brings up compose stack, pulls `llama3.2:1b`, gates on `faithfulness ≥ 0.70` and `context_recall ≥ 0.65` |
+| `pr_checks.yml` — `ragas-ci-eval` job | PRs to `main`/`develop` | Brings up compose stack, pulls `phi3:mini` + `nomic-embed-text` inside the Ollama container via `pull_model.sh`, runs a 3-question RAGAS gate (`max_workers=1`, strict JSON output) on `faithfulness ≥ 0.70` and `context_recall ≥ 0.65` |
 | `.github/workflows/refresh.yml` | Cron `7 6 * * 1` (Mon 06:07 UTC) + manual dispatch | Runs `mlops.refresh_trigger.trigger_refresh`; on manual runs posts before/after metric comment on the spec[...]
 
 ## Named Volumes & Logs
@@ -338,12 +347,12 @@ docker compose down -v
 ## Makefile Targets
 
 ```bash
-make setup          # install Python deps + pull llama3.2:1b
+make setup          # install Python deps + pull phi3:mini + nomic-embed-text
 make up / make down # docker compose up/down
 make healthcheck    # poll /health until green
 make test-unit      # pytest (mock-based, no docker)
 make test-e2e       # pytest integration tier (needs docker)
-make eval-ci        # RAGAS 5-question smoke eval
+make eval-ci        # RAGAS 3-question smoke eval (Phi-3 judge)
 make eval-full      # full 9-config ablation sweep (hours on CPU)
 make baseline       # docker compose exec fastapi python scripts/run_baseline_eval.py (persists to ragops_baselines volume)
 make baseline-host  # local host run — writes to $BASELINE_DIR (set in .env, e.g. ./baselines)

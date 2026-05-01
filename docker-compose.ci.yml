@@ -11,6 +11,8 @@ services:
       OLLAMA_KEEP_ALIVE: "10m"     # keep it lighter in CI (optional)
       OLLAMA_NUM_PARALLEL: "1"     # reduce load in CI (optional)
       OLLAMA_NUM_GPU: "0"          # force CPU
+      OLLAMA_MODEL: "phi3:mini"            # CI judge — small, JSON-friendly
+      OLLAMA_EMBED_MODEL: "nomic-embed-text"   # RAGAS embedding metrics
 
     # Keep the rest consistent so your workflow steps still work
     ports:

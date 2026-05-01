@@ -28,3 +28,11 @@ echo "[ragops/ollama] Server is ready. Pulling ${MODEL} (cached if already prese
 ollama pull "${MODEL}"
 
 echo "[ragops/ollama] Model ${MODEL} is ready."
+
+# RAGAS embedding metrics (context_precision, answer_relevancy) require a
+# separate embedding model. Pull it inside the container so CI and dev are
+# both guaranteed to have it before evaluate() runs.
+EMBED_MODEL="${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
+echo "[ragops/ollama] Pulling embedding model: ${EMBED_MODEL}"
+ollama pull "${EMBED_MODEL}"
+echo "[ragops/ollama] Embedding model ${EMBED_MODEL} is ready."

@@ -7,7 +7,7 @@ Exposes:
     run_eval(qa_pairs, config)   -> dict   # full 50-question eval
     run_ci_eval(config=None)     -> dict   # smoke-test, < 90 s
 
-LLM Judge : Ollama (default: llama3.2:1b via OLLAMA_MODEL env var)
+LLM Judge : Ollama (default: phi3:mini via OLLAMA_MODEL env var)
 Metrics   : faithfulness | context_recall | answer_relevance | context_precision
 Tracking  : MLflow — every run logged automatically
 
@@ -33,6 +33,7 @@ import json
 import logging
 import random
 import time
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -109,13 +110,13 @@ _set_seeds()
 # Constants
 # ---------------------------------------------------------------------------
 OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "phi3:mini")
 OLLAMA_EMBED_MODEL: str = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 
 MLFLOW_EXPERIMENT: str = os.getenv("MLFLOW_EXPERIMENT", "ragops-ragas-eval")
 MLFLOW_TRACKING_URI: str = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlruns.db")
 
-CI_SAMPLE_SIZE: int = 5  # questions used in run_ci_eval
+CI_SAMPLE_SIZE: int = 3  # questions used in run_ci_eval (low-parallelism CI cap)
 CI_TIMEOUT_SECS: int = 90  # hard SLA for run_ci_eval
 
 # RAGAS metric objects — instantiated via _get_metric() above
@@ -128,6 +129,44 @@ METRIC_KEYS = [
     "answer_relevance",
     "context_precision",
 ]
+
+# Substrings (case-insensitive) that indicate the LLM judge produced output the
+# RAGAS / LangChain stack could not parse as JSON. Any match in captured warnings
+# or log records is treated as a fatal pipeline failure rather than allowed to
+# silently propagate as NaN scores.
+_JSON_PARSE_FAILURE_SIGNATURES = (
+    "outputparserexception",
+    "failed to parse",
+    "jsondecodeerror",
+    "invalid json",
+    "could not parse",
+    "expecting value",
+)
+
+
+class _RagasLogCapture(logging.Handler):
+    """Capture WARNING/ERROR records from ragas/langchain to detect parser failures."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.records: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self.records.append(record.getMessage())
+        except Exception:  # noqa: BLE001
+            self.records.append(str(record.msg))
+
+
+def _scan_for_parse_failures(messages: list[str]) -> str | None:
+    """Return the first message matching a JSON-parse failure signature, else None."""
+    for msg in messages:
+        low = msg.lower()
+        for sig in _JSON_PARSE_FAILURE_SIGNATURES:
+            if sig in low:
+                return msg
+    return None
+
 
 # ---------------------------------------------------------------------------
 # LLM / Embedding wrappers
@@ -217,7 +256,7 @@ def _run_ragas(
     _set_seeds()  # re-seed right before evaluation for full determinism
 
     # CPU-safe concurrency — run 1 job at a time, long timeout
-    # llama3.2:1b on CPU takes ~20-40s per call
+    # phi3:mini on CPU takes ~20-40s per call (CI judge)
     os.environ["RAGAS_MAX_WORKERS"] = "1"
     os.environ["RAGAS_TIMEOUT"] = "600"  # 10 min per job
 
@@ -267,23 +306,70 @@ def _run_ragas(
             max_retries=3,  # retry on transient 500s
             max_workers=1,  # sequential — prevents RAM overload on CPU
         )
-        result = evaluate(
-            dataset=dataset,
-            metrics=_METRICS,
-            run_config=run_cfg,
-        )
+
+        # Capture RAGAS/LangChain warnings + log records so we can fail loudly
+        # if the LLM judge produced output that the parsers could not turn into
+        # JSON. Otherwise these surface as silent NaN per-question scores.
+        capture = _RagasLogCapture()
+        captured_loggers = [
+            logging.getLogger("ragas"),
+            logging.getLogger("langchain"),
+            logging.getLogger("langchain_core"),
+            logging.getLogger("langchain_ollama"),
+        ]
+        for lg in captured_loggers:
+            lg.addHandler(capture)
+
+        try:
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                result = evaluate(
+                    dataset=dataset,
+                    metrics=_METRICS,
+                    run_config=run_cfg,
+                )
+            warning_messages = [str(w.message) for w in caught_warnings]
+        finally:
+            for lg in captured_loggers:
+                lg.removeHandler(capture)
+
+        all_messages = warning_messages + capture.records
+        parse_failure = _scan_for_parse_failures(all_messages)
+        if parse_failure is not None:
+            raise RuntimeError(
+                f"RAGAS LLM output parsing failed for model={OLLAMA_MODEL}: "
+                f"{parse_failure}"
+            )
 
         elapsed = time.perf_counter() - t0
         log.info("RAGAS finished in %.1f s", elapsed)
 
-        # ── Extract scores ─────────────────────────────────────────────
+        # ── Extract scores (NaN-aware) ────────────────────────────────
         result_df: pd.DataFrame = result.to_pandas()
 
+        def _safe_mean(col: str) -> float:
+            series = result_df[col]
+            n_total = len(series)
+            n_nan = int(series.isna().sum())
+            if n_nan == n_total and n_total > 0:
+                raise RuntimeError(
+                    f"RAGAS metric '{col}' returned only NaN for "
+                    f"model={OLLAMA_MODEL} — likely LLM JSON parsing failure"
+                )
+            if n_nan > 0:
+                log.warning(
+                    "Metric '%s' had %d/%d NaN rows — falling back to nanmean",
+                    col,
+                    n_nan,
+                    n_total,
+                )
+            return float(np.nanmean(series.to_numpy()))
+
         scores: dict[str, float] = {
-            "faithfulness": float(result_df["faithfulness"].mean()),
-            "context_recall": float(result_df["context_recall"].mean()),
-            "answer_relevance": float(result_df["answer_relevancy"].mean()),
-            "context_precision": float(result_df["context_precision"].mean()),
+            "faithfulness": _safe_mean("faithfulness"),
+            "context_recall": _safe_mean("context_recall"),
+            "answer_relevance": _safe_mean("answer_relevancy"),
+            "context_precision": _safe_mean("context_precision"),
         }
 
         # ── MLflow metrics ─────────────────────────────────────────────
@@ -419,7 +505,8 @@ def run_ci_eval(
 
 def _ci_stub_pairs() -> list[dict[str, Any]]:
     """
-    5 minimal medical QA pairs for CI smoke-testing.
+    3 minimal medical QA pairs for CI smoke-testing.
+    Trimmed to match CI_SAMPLE_SIZE=3 — keeps the gate fast on small CI Ollama.
     NOT for paper results — use the 50-question PubMed benchmark for those.
     """
     return [
@@ -462,40 +549,6 @@ def _ci_stub_pairs() -> list[dict[str, Any]]:
             "ground_truth": (
                 "Aspirin irreversibly inhibits COX enzymes, reducing TXA2 and platelet "
                 "aggregation."
-            ),
-        },
-        {
-            "question": "What is the mechanism of action of beta-blockers in heart failure?",
-            "answer": (
-                "Beta-blockers competitively block catecholamines at beta-adrenergic receptors, "
-                "reducing heart rate and myocardial oxygen demand."
-            ),
-            "contexts": [
-                "Beta-adrenergic receptor antagonists reduce sympathetic stimulation of the "
-                "heart, decreasing heart rate, contractility, and oxygen consumption.",
-                "In heart failure, beta-blockers reduce adverse cardiac remodelling and "
-                "improve long-term survival.",
-            ],
-            "ground_truth": (
-                "Beta-blockers block beta-adrenergic receptors, reducing heart rate and "
-                "myocardial oxygen demand, improving outcomes in heart failure."
-            ),
-        },
-        {
-            "question": "What is the role of HbA1c in diabetes monitoring?",
-            "answer": (
-                "HbA1c reflects average blood glucose over the preceding 2-3 months and "
-                "is used to assess long-term glycaemic control."
-            ),
-            "contexts": [
-                "Glycated haemoglobin (HbA1c) provides an index of average plasma glucose "
-                "concentration over the preceding 8-12 weeks.",
-                "Current guidelines recommend HbA1c < 7% (53 mmol/mol) as a target for "
-                "most patients with type 2 diabetes.",
-            ],
-            "ground_truth": (
-                "HbA1c measures average blood glucose over 2-3 months and is the standard "
-                "marker for long-term glycaemic control."
             ),
         },
     ]

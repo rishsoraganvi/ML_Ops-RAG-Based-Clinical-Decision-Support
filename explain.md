@@ -157,8 +157,9 @@ _run_eval_sync()
 | `answer_relevance`  | ≥ 0.75    | Answer matches the question                     |
 | `context_precision` | —         | Ranked order of relevant vs irrelevant chunks   |
 
-- The **CI judge** is `llama3.2:1b` (lightweight) vs production `llama3.2:3b` (`OLLAMA_MODEL` env).
-- `run_ci_eval` caps at 5 questions and 90 s wall-clock (`CI_SAMPLE_SIZE=5`, `CI_TIMEOUT_SECS=90`).
+- The **CI judge** is `phi3:mini` (lightweight, JSON-friendly) vs production `llama3.2:3b` (`OLLAMA_MODEL` env). The embedding metrics use `nomic-embed-text` (`OLLAMA_EMBED_MODEL`).
+- `run_ci_eval` caps at **3 questions** and 90 s wall-clock (`CI_SAMPLE_SIZE=3`, `CI_TIMEOUT_SECS=90`).
+- **Hardening** (`evaluation/ragas_runner.py`): RAGAS runs sequentially (`RunConfig(max_workers=1, timeout=600, max_retries=3)`); the Ollama judge is forced to `format="json"` with `temperature=0`; the runner captures RAGAS / LangChain warnings during `evaluate()` and **raises** on any output-parsing failure (`OutputParserException`, `Failed to parse`, `JSONDecodeError`, `invalid json`). Per-metric scores use `nanmean`, but if a metric column is entirely NaN the runner raises a clear `RuntimeError` naming the metric and the model. These guards turn the previously-silent "non-JSON LLM output → NaN metrics → confusing CI failure" failure mode into an explicit, actionable error.
 - Every run logs to MLflow with tags: `run_tag`, `config_hash` (8-char SHA1 of config JSON), `ollama_model`, `n_questions`.
 - **QualityGateResult** (`mlops/mlflow_tracker.py`) is a dataclass with `passed: bool` + `failures: dict[str, str]` that drives CI pass/fail.
 
@@ -278,7 +279,7 @@ Five jobs run on PRs to `main` / `develop`:
 2. **no-print-guard** — grep-based reject of `print()` in `src/`, `mlops/`, `serving/`. Use the `logging` module instead.
 3. **unit-tests** — `pytest` with coverage gate `--cov-fail-under=80` (env: `MLFLOW_TRACKING_URI=sqlite:///test_mlflow.db`, `ENVIRONMENT=test`).
 4. **docker-build** — validates the FastAPI Dockerfile builds.
-5. **ragas-quality-gate** (main/develop only) — spins up the full compose stack, pulls `llama3.2:1b`, runs `run_ci_eval()` with looser PR thresholds (`faithfulness ≥ 0.70`, `context_recall ≥ 0.65`) for velocity.
+5. **ragas-quality-gate** (main/develop only) — spins up the full compose stack; `docker/ollama/pull_model.sh` pulls `phi3:mini` and `nomic-embed-text` *inside* the Ollama container (driven by `OLLAMA_MODEL` / `OLLAMA_EMBED_MODEL` set in `docker-compose.ci.yml`); runs `run_ci_eval()` (3 questions, sequential, strict JSON, NaN-fatal) with looser PR thresholds (`faithfulness ≥ 0.70`, `context_recall ≥ 0.65`) for velocity.
 
 ---
 

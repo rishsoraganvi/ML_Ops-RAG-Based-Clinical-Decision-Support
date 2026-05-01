@@ -5,7 +5,7 @@
 # On Windows run them from WSL or Git Bash. CI uses Ubuntu runners — no issue.
 #
 # Common workflows:
-#   make setup          install Python deps + pull llama3.2:1b
+#   make setup          install Python deps + pull phi3:mini (CI judge)
 #   make up             docker compose up -d
 #   make healthcheck    poll /health until green
 #   make test-unit      pytest (mock-based, no docker required)
@@ -26,7 +26,7 @@ API    ?= http://localhost:8080
 
 help:
 	@echo "RAGOps Makefile targets:"
-	@echo "  setup         install deps + pull llama3.2:1b"
+	@echo "  setup         install deps + pull phi3:mini + nomic-embed-text"
 	@echo "  up / down     docker compose up/down"
 	@echo "  logs          tail FastAPI logs"
 	@echo "  healthcheck   poll /health via scripts/healthcheck.py"
@@ -48,8 +48,9 @@ setup:
 	$(PIP) install --upgrade pip
 	$(PIP) install -r docker/fastapi/requirements.txt
 	$(PIP) install ruff mypy pytest pytest-asyncio pytest-cov
-	@echo "Pulling llama3.2:1b via Ollama CLI (ignore if Ollama container handles it)…"
-	-ollama pull llama3.2:1b
+	@echo "Pulling phi3:mini + nomic-embed-text via Ollama CLI (ignore if Ollama container handles it)…"
+	-ollama pull phi3:mini
+	-ollama pull nomic-embed-text
 
 # ── Docker lifecycle ─────────────────────────────────────────────────────────
 up:
