@@ -348,14 +348,31 @@ class RAGOpsTracker:
             logged under their original keys.
         """
         self._assert_run_active()
+        import math
+
         core = {
             MetricNames.FAITHFULNESS: metrics.faithfulness,
             MetricNames.CONTEXT_RECALL: metrics.context_recall,
             MetricNames.ANSWER_RELEVANCY: metrics.answer_relevancy,
         }
-        mlflow.log_metrics(core)
+        # MLflow rejects NaN floats — strip them and surface a warning so a
+        # judge regression on one metric never silently passes the gate.
+        loggable_core = {
+            k: v for k, v in core.items() if v is not None and not math.isnan(v)
+        }
+        skipped_core = [k for k in core if k not in loggable_core]
+        if skipped_core:
+            logger.warning(
+                "Skipping NaN/None RAGAS metrics for MLflow log: %s", skipped_core
+            )
+        mlflow.log_metrics(loggable_core)
         if metrics.extra:
-            mlflow.log_metrics(metrics.extra)
+            loggable_extra = {
+                k: v
+                for k, v in metrics.extra.items()
+                if v is not None and not math.isnan(v)
+            }
+            mlflow.log_metrics(loggable_extra)
         logger.info(
             "RAGAS metrics logged — faithfulness=%.3f context_recall=%.3f answer_relevancy=%.3f",
             metrics.faithfulness,
@@ -493,10 +510,16 @@ class RAGOpsTracker:
         for metric, threshold in thresholds.items():
             actual = run_data.get(metric)
             if actual is None:
-                raise RuntimeError(
-                    f"Quality gate check: metric '{metric}' not found in run {run_id}. "
-                    "Ensure log_ragas_metrics() is called before log_quality_gate_results()."
+                # NaN values are stripped before being logged (see
+                # log_ragas_metrics).  A missing metric here means the judge
+                # produced unparseable output for it — fail the gate rather
+                # than crash, so CI/operators see exactly which metric is bad.
+                failures[metric] = (
+                    f"metric '{metric}' missing from run {run_id} "
+                    f"(judge returned NaN); threshold={threshold:.4f}"
                 )
+                logger.warning("Quality gate FAIL — %s: %s", metric, failures[metric])
+                continue
             if actual < threshold:
                 failures[metric] = f"actual={actual:.4f} < threshold={threshold:.4f}"
                 logger.warning("Quality gate FAIL — %s: %s", metric, failures[metric])

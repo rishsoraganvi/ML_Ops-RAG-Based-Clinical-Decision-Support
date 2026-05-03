@@ -119,8 +119,14 @@ MLFLOW_TRACKING_URI: str = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlruns.db
 CI_SAMPLE_SIZE: int = 3  # questions used in run_ci_eval (low-parallelism CI cap)
 CI_TIMEOUT_SECS: int = 90  # hard SLA for run_ci_eval
 
-# RAGAS metric objects — instantiated via _get_metric() above
-_METRICS = [answer_relevancy, context_precision]  # simpler, faster, more stable
+# RAGAS metric objects — instantiated via _get_metric() above.
+# All 4 metrics are required by the public contract in CLAUDE.md / README.md
+# and by the Paper TABLE 1 columns.  Faithfulness + context_recall are more
+# expensive and more prone to JSON-parse failures on small judges, so for the
+# 9-cell ablation sweep set OLLAMA_MODEL=llama3:8b (more JSON-stable than
+# phi3:mini / llama3.2:3b).  The NaN-tolerant _safe_mean below ensures a
+# single flaky judge call no longer discards the full ablation cell.
+_METRICS = [faithfulness, context_recall, answer_relevancy, context_precision]
 
 # Canonical output keys — keep stable for downstream consumers
 METRIC_KEYS = [
@@ -347,14 +353,27 @@ def _run_ragas(
         result_df: pd.DataFrame = result.to_pandas()
 
         def _safe_mean(col: str) -> float:
+            if col not in result_df.columns:
+                log.warning(
+                    "RAGAS result missing column '%s' for model=%s — metric "
+                    "not computed (likely judge regression). Returning NaN. "
+                    "Available columns: %s",
+                    col,
+                    OLLAMA_MODEL,
+                    list(result_df.columns),
+                )
+                return float("nan")
             series = result_df[col]
             n_total = len(series)
             n_nan = int(series.isna().sum())
             if n_nan == n_total and n_total > 0:
-                raise RuntimeError(
-                    f"RAGAS metric '{col}' returned only NaN for "
-                    f"model={OLLAMA_MODEL} — likely LLM JSON parsing failure"
+                log.warning(
+                    "RAGAS metric '%s' returned only NaN for model=%s — "
+                    "likely LLM JSON parsing failure. Returning NaN.",
+                    col,
+                    OLLAMA_MODEL,
                 )
+                return float("nan")
             if n_nan > 0:
                 log.warning(
                     "Metric '%s' had %d/%d NaN rows — falling back to nanmean",
@@ -372,14 +391,30 @@ def _run_ragas(
         }
 
         # ── MLflow metrics ─────────────────────────────────────────────
-        mlflow.log_metrics(scores)
+        # Filter NaN before logging — MLflow rejects NaN floats.
+        import math
+
+        loggable = {k: v for k, v in scores.items() if not math.isnan(v)}
+        skipped = [k for k in scores if k not in loggable]
+        if skipped:
+            log.warning("Skipping NaN RAGAS metrics for MLflow log: %s", skipped)
+        mlflow.log_metrics(loggable)
         mlflow.log_metric("eval_latency_s", elapsed)
         mlflow.log_metric("n_questions", len(dataset))
 
-        # Per-question scores as artifact (needed for paired t-tests)
-        per_q = result_df[
-            ["faithfulness", "context_recall", "answer_relevancy", "context_precision"]
-        ].rename(columns={"answer_relevancy": "answer_relevance"})
+        # Per-question scores as artifact (needed for paired t-tests).
+        # Tolerate missing columns the same way _safe_mean does — a single
+        # absent metric must not crash the artifact write.
+        _pq_cols = [
+            "faithfulness",
+            "context_recall",
+            "answer_relevancy",
+            "context_precision",
+        ]
+        present_cols = [c for c in _pq_cols if c in result_df.columns]
+        per_q = result_df[present_cols].rename(
+            columns={"answer_relevancy": "answer_relevance"}
+        )
 
         import tempfile
 

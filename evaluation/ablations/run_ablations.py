@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import random
+import sys
 import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -43,6 +44,14 @@ from pathlib import Path
 import mlflow
 import numpy as np
 import pandas as pd
+
+# Allow direct script execution from repo root:
+#   python evaluation/ablations/run_ablations.py --dry-run
+# by ensuring the repository root is discoverable on sys.path.
+if __package__ in (None, ""):
+    _repo_root = Path(__file__).resolve().parents[2]
+    if str(_repo_root) not in sys.path:
+        sys.path.insert(0, str(_repo_root))
 
 # ragops_eval must be on PYTHONPATH (same directory is fine)
 from evaluation.ragas_runner import run_eval, MLFLOW_EXPERIMENT, MLFLOW_TRACKING_URI

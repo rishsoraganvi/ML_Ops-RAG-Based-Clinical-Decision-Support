@@ -274,18 +274,20 @@ make eval-ci
 # Inspect the 9-config ablation grid without running the LLM
 python evaluation/ablations/run_ablations.py --dry-run
 
-# Full sweep — 9 retrieval configs × 50 questions = 450 evaluations
-python evaluation/ablations/run_ablations.py \
+# Full sweep — 9 retrieval configs × 50 questions = 450 evaluations.
+# Use llama3:8b for the judge: faithfulness + context_recall do statement
+# decomposition / NLI which are JSON-parse-flaky on smaller models.
+OLLAMA_MODEL=llama3:8b python evaluation/ablations/run_ablations.py \
     --qa-file evaluation/benchmarks/qa_pairs.json --workers 1
 # or: make eval-full
 ```
 
-**RAGAS hardening (CI):**
+**RAGAS hardening (CI + ablation):**
 
-- **Judge model:** `phi3:mini` (set via `OLLAMA_MODEL` in `docker-compose.ci.yml` and `pr_checks.yml`). Production `/query` continues to use `llama3.2:3b`.
+- **Judge model:** three-tier deployment. CI smoke gate uses `phi3:mini` (fast, low memory; set via `OLLAMA_MODEL` in `docker-compose.ci.yml` / `pr_checks.yml`). Ablation sweeps use `llama3:8b` — `faithfulness` and `context_recall` decompose the answer into atomic statements + run per-statement NLI, which produces malformed JSON on small judges. Production `/query` continues to use `llama3.2:3b`.
 - **Embedding model:** `nomic-embed-text` (`OLLAMA_EMBED_MODEL`). Required for `context_precision` and `answer_relevancy` — pulled inside the Ollama container by `docker/ollama/pull_model.sh` so RAGAS never crashes mid-run on a missing model.
-- **Strict JSON output:** the Ollama judge runs with `format="json"` and `temperature=0`. The runner captures RAGAS / LangChain warnings during `evaluate()` and **raises** if any output-parsing failure (`OutputParserException`, `Failed to parse`, `JSONDecodeError`, `invalid json`) is detected — so silent NaN scores cannot reach the quality gate.
-- **NaN guard:** per-metric `nanmean` with a hard error if a metric column is entirely NaN (names the offending metric and model).
+- **Strict JSON output:** the Ollama judge runs with `format="json"`, `temperature=0`, `num_predict=2048`, `num_ctx=2048`. The runner captures RAGAS / LangChain warnings during `evaluate()` and emits a structured warning on detected parse failures (`OutputParserException`, `Failed to parse`, `JSONDecodeError`, `invalid json`).
+- **NaN-tolerant aggregation:** per-metric `nanmean` falls back to NaN with a clear log entry if a metric column is missing or entirely NaN — a single flaky judge call must not discard a 25-min ablation cell. NaN scores are skipped before MLflow logging (MLflow rejects NaN floats); the quality gate marks any missing/NaN metric as a failure rather than crashing, so CI/operators see exactly which metric the judge failed on.
 - **Low parallelism:** `RunConfig(max_workers=1, timeout=600, max_retries=3)` — sequential evaluation prevents Ollama timeouts on small CI runners.
 - **Dataset cap:** `CI_SAMPLE_SIZE = 3` questions per CI run (down from 5).
 
