@@ -187,6 +187,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Check disk space after cleanup
+        run: df -h
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -200,15 +214,23 @@ jobs:
           pip install -r docker/fastapi/requirements.txt
 
       - name: Start docker-compose stack
-        run: docker compose up -d chromadb mlflow ollama fastapi
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build chromadb mlflow ollama fastapi
 
-      - name: Pull small LLM for CI
-        run: docker compose exec -T ollama ollama pull llama3.2:1b
+      # NOTE: phi3:mini and nomic-embed-text are pulled INSIDE the Ollama
+      # container by docker/ollama/pull_model.sh on startup (driven by
+      # OLLAMA_MODEL/OLLAMA_EMBED_MODEL env vars set in docker-compose.ci.yml).
+      # The previous host-side `ollama pull` lines were no-ops because the
+      # GitHub runner host has no Ollama daemon — only the container does.
 
       - name: Wait for services healthy
-        run: python scripts/healthcheck.py --timeout 180 --poll-interval 5
+        run: python scripts/healthcheck.py --timeout 300 --poll-interval 5
+
+      - name: Verify Ollama models inside container
+        run: docker compose exec -T ollama ollama list
 
       - name: Run RAGAS CI evaluation + quality gate
+        env:
+          OLLAMA_MODEL: phi3:mini
         run: |
           python -c "
           from evaluation.ragas_runner import run_ci_eval
@@ -229,6 +251,10 @@ jobs:
             mlruns/
           retention-days: 7
           if-no-files-found: ignore
+      
+      - name: Dump Ollama logs on failure
+        if: failure()
+        run: docker compose logs ollama
 
       - name: Dump FastAPI logs on failure
         if: failure()

@@ -16,16 +16,20 @@ Novel metric: no existing RAGOps work tracks explanation stability over time.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 
 from src.config.settings import settings
 from src.infra.baseline_store import get_baseline_store
 
+FloatArray = NDArray[np.floating[Any]]
+
 logger = logging.getLogger("ragops.explanation_monitor")
 
 
-def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+def _cosine_similarity(a: FloatArray, b: FloatArray) -> float:
     """Compute cosine similarity between two vectors.
 
     Returns 0.0 if either vector has zero norm.
@@ -38,7 +42,7 @@ def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 
 # XAI CONTRIBUTION
-def save_baseline(vectors: list[np.ndarray]) -> None:
+def save_baseline(vectors: list[FloatArray]) -> None:
     """Store explanation vectors as the XAI baseline for future comparisons.
 
     Should be called after the first successful evaluation run with
@@ -54,8 +58,8 @@ def save_baseline(vectors: list[np.ndarray]) -> None:
 
 # XAI CONTRIBUTION
 def compute_consistency(
-    current_vectors: list[np.ndarray] | None = None,
-    baseline_vectors: list[np.ndarray] | None = None,
+    current_vectors: list[FloatArray] | None = None,
+    baseline_vectors: list[FloatArray] | None = None,
 ) -> float:
     """Compute mean cosine similarity between current and baseline explanation vectors.
 

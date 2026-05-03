@@ -61,8 +61,10 @@ jobs:
       - name: Start docker-compose stack
         run: docker compose up -d chromadb mlflow ollama fastapi
 
-      - name: Pull small LLM for refresh evals
-        run: docker compose exec -T ollama ollama pull llama3.2:1b
+      - name: Pull small LLM + embedding model for refresh evals
+        run: |
+          docker compose exec -T ollama ollama pull phi3:mini
+          docker compose exec -T ollama ollama pull nomic-embed-text
 
       - name: Wait for services healthy
         run: python scripts/healthcheck.py --timeout 300 --poll-interval 5

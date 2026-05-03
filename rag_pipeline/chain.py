@@ -13,7 +13,7 @@ Exposes two public APIs required by the project spec:
 import logging
 import os
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from langchain_community.chat_models import ChatOllama
 from langchain.chains import RetrievalQA
@@ -68,6 +68,7 @@ def _get_llm() -> ChatOllama:
         model=OLLAMA_MODEL,
         base_url=OLLAMA_BASE_URL,
         temperature=OLLAMA_TEMP,
+        num_ctx=2048,
     )
 
 
@@ -76,7 +77,7 @@ def _get_llm() -> ChatOllama:
 # ---------------------------------------------------------------------------
 
 
-def build_chain(config: dict) -> RetrievalQA:
+def build_chain(config: dict[str, Any]) -> RetrievalQA:
     """
     Assemble a RetrievalQA chain for the given config.
 
@@ -116,9 +117,9 @@ def build_chain(config: dict) -> RetrievalQA:
 
 def query(
     question: str,
-    config: Optional[dict] = None,
+    config: Optional[dict[str, Any]] = None,
     mlflow_run: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """
     Run an end-to-end RAG query and return a structured result dict.
 
@@ -167,7 +168,13 @@ def query(
 
     prompt_text = CLINICAL_PROMPT.format(context=context, question=question_processed)
     llm_resp = llm.invoke(prompt_text)
-    answer = llm_resp.content.strip()
+    raw_content = llm_resp.content
+    if isinstance(raw_content, str):
+        answer = raw_content.strip()
+    else:
+        answer = "".join(
+            part if isinstance(part, str) else str(part) for part in raw_content
+        ).strip()
 
     llm_ms = round((time.perf_counter() - t_llm) * 1000, 2)
     total_ms = round(retrieval_ms + llm_ms, 2)
@@ -208,7 +215,7 @@ def query(
 # ---------------------------------------------------------------------------
 
 
-def bm25_term_scores(query_text: str, doc: str) -> dict:
+def bm25_term_scores(query_text: str, doc: str) -> dict[str, float]:
     """
     Return per-term BM25 scores for a query against a single document.
 
@@ -229,7 +236,7 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
     from collections import Counter
 
     # Tokenise (lowercase, alpha only)
-    def tokenise(text: str):
+    def tokenise(text: str) -> list[str]:
         import re
 
         return re.findall(r"[a-z]+", text.lower())
@@ -247,7 +254,7 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
     k1, b, avgdl = 1.5, 0.75, 150.0
 
     # Single-document IDF approximation (log(1 + 1/tf_norm))
-    scores = {}
+    scores: dict[str, float] = {}
     for term in query_terms:
         tf = tf_counts.get(term, 0)
         if tf == 0:
@@ -266,8 +273,8 @@ def bm25_term_scores(query_text: str, doc: str) -> dict:
 
 def _log_to_mlflow(
     question: str,
-    result: dict,
-    cfg: dict,
+    result: dict[str, Any],
+    cfg: dict[str, Any],
     question_processed: Optional[str] = None,
 ) -> None:
     """Log one RAG query as an MLflow run via RAGOpsTracker."""
@@ -310,7 +317,7 @@ ABLATION_CONFIGS = [
 ]
 
 
-def run_ablation(question: str, mlflow_run: bool = True) -> list:
+def run_ablation(question: str, mlflow_run: bool = True) -> list[dict[str, Any]]:
     """
     Run question across all ablation configs and return results list.
     Maps directly to Paper Table 1 rows.

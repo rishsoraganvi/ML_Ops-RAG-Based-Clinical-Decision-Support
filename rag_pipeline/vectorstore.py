@@ -6,13 +6,15 @@ Handles persistent storage, collection naming, and embedding function.
 import logging
 import os
 from functools import lru_cache
-from typing import Any, Optional, cast
+from typing import Any, Callable, Optional
 
 import chromadb
 from chromadb.api import ClientAPI
 from chromadb.api.models.Collection import Collection
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
+
+EmbeddingFunction = Callable[[list[str]], list[list[float]]]
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +40,9 @@ VALID_CHUNK_SIZES = (256, 512, 1024)
 
 
 @lru_cache(maxsize=1)
-def get_embedding_function() -> (
-    embedding_functions.SentenceTransformerEmbeddingFunction
-):
+def get_embedding_function() -> EmbeddingFunction:
     """Return a cached SentenceTransformer embedding function (singleton)."""
-    return embedding_functions.SentenceTransformerEmbeddingFunction(
+    return embedding_functions.SentenceTransformerEmbeddingFunction(  # type: ignore[attr-defined,no-any-return]
         model_name=EMBED_MODEL
     )
 
@@ -102,13 +102,10 @@ def get_or_create_collection(
     name = collection_name(chunk_size)
     ef = get_embedding_function()
 
-    collection = cast(
-        Collection,
-        client.get_or_create_collection(
-            name=name,
-            embedding_function=ef,
-            metadata={"hnsw:space": "cosine"},  # cosine similarity for dense retrieval
-        ),
+    collection = client.get_or_create_collection(
+        name=name,
+        embedding_function=ef,  # type: ignore[arg-type]
+        metadata={"hnsw:space": "cosine"},  # cosine similarity for dense retrieval
     )
     logger.info(
         "Collection '%s' ready — %d documents currently stored.",

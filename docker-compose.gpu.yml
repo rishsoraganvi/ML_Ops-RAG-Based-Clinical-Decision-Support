@@ -1,0 +1,10 @@
+services:
+  ollama:
+    # NVIDIA GPU passthrough (requires NVIDIA Container Toolkit)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${NVIDIA_GPU_COUNT:-1}
+              capabilities: [gpu]

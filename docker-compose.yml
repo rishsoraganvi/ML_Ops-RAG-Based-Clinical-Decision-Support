@@ -98,13 +98,6 @@ services:
     networks:
       - ragops_net
     # ── NVIDIA GPU passthrough ──────────────────────────────────────────────
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${NVIDIA_GPU_COUNT:-1}
-              capabilities: [gpu]
     # Run model pull in background after container starts
     entrypoint: ["/bin/bash", "-c"]
     command: >

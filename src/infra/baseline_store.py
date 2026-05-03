@@ -25,10 +25,14 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 logger = logging.getLogger("ragops.infra.baseline_store")
+
+EmbeddingMatrix = NDArray[np.floating[Any]]
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +52,7 @@ class BaselineStore(ABC):
     # ── PSI baseline ─────────────────────────────────────────────────────────
 
     @abstractmethod
-    def save_psi_baseline(self, embeddings: np.ndarray) -> None:
+    def save_psi_baseline(self, embeddings: EmbeddingMatrix) -> None:
         """
         Persist the reference embedding matrix for future PSI comparisons.
 
@@ -60,7 +64,7 @@ class BaselineStore(ABC):
         """
 
     @abstractmethod
-    def load_psi_baseline(self) -> np.ndarray | None:
+    def load_psi_baseline(self) -> EmbeddingMatrix | None:
         """
         Retrieve the stored PSI baseline embedding matrix.
 
@@ -75,7 +79,7 @@ class BaselineStore(ABC):
     # ── XAI baseline ─────────────────────────────────────────────────────────
 
     @abstractmethod
-    def save_xai_baseline(self, vectors: list[np.ndarray]) -> None:
+    def save_xai_baseline(self, vectors: list[EmbeddingMatrix]) -> None:
         """
         Persist the reference explanation vectors for all benchmark questions.
 
@@ -88,7 +92,7 @@ class BaselineStore(ABC):
         """
 
     @abstractmethod
-    def load_xai_baseline(self) -> list[np.ndarray] | None:
+    def load_xai_baseline(self) -> list[EmbeddingMatrix] | None:
         """
         Retrieve the stored XAI baseline explanation vectors.
 
@@ -125,8 +129,8 @@ class InMemoryBaselineStore(BaselineStore):
     """
 
     def __init__(self) -> None:
-        self._psi_baseline: np.ndarray | None = None
-        self._xai_baseline: list[np.ndarray] | None = None
+        self._psi_baseline: EmbeddingMatrix | None = None
+        self._xai_baseline: list[EmbeddingMatrix] | None = None
         logger.warning(
             "InMemoryBaselineStore active — baselines will NOT persist "
             "across restarts. Replace with a durable store before production."
@@ -134,7 +138,9 @@ class InMemoryBaselineStore(BaselineStore):
 
     # ── PSI ──────────────────────────────────────────────────────────────────
 
-    def save_psi_baseline(self, embeddings: np.ndarray) -> None:  # PAPER CONTRIBUTION
+    def save_psi_baseline(
+        self, embeddings: EmbeddingMatrix
+    ) -> None:  # PAPER CONTRIBUTION
         """Store embedding matrix in memory."""
         logger.info(
             "PSI baseline saved in memory — shape=%s dtype=%s",
@@ -143,7 +149,7 @@ class InMemoryBaselineStore(BaselineStore):
         )
         self._psi_baseline = embeddings.copy()
 
-    def load_psi_baseline(self) -> np.ndarray | None:  # PAPER CONTRIBUTION
+    def load_psi_baseline(self) -> EmbeddingMatrix | None:  # PAPER CONTRIBUTION
         """Return in-memory PSI baseline, or None if not yet set."""
         return self._psi_baseline
 
@@ -152,7 +158,9 @@ class InMemoryBaselineStore(BaselineStore):
 
     # ── XAI ──────────────────────────────────────────────────────────────────
 
-    def save_xai_baseline(self, vectors: list[np.ndarray]) -> None:  # XAI CONTRIBUTION
+    def save_xai_baseline(
+        self, vectors: list[EmbeddingMatrix]
+    ) -> None:  # XAI CONTRIBUTION
         """Store explanation vectors in memory."""
         logger.info(
             "XAI baseline saved in memory — %d vectors, first shape=%s",
@@ -161,7 +169,7 @@ class InMemoryBaselineStore(BaselineStore):
         )
         self._xai_baseline = [v.copy() for v in vectors]
 
-    def load_xai_baseline(self) -> list[np.ndarray] | None:  # XAI CONTRIBUTION
+    def load_xai_baseline(self) -> list[EmbeddingMatrix] | None:  # XAI CONTRIBUTION
         """Return in-memory XAI baseline vectors, or None if not yet set."""
         return self._xai_baseline
 
@@ -196,7 +204,9 @@ class FileBaselineStore(BaselineStore):
 
     # ── PSI ──────────────────────────────────────────────────────────────────
 
-    def save_psi_baseline(self, embeddings: np.ndarray) -> None:  # PAPER CONTRIBUTION
+    def save_psi_baseline(
+        self, embeddings: EmbeddingMatrix
+    ) -> None:  # PAPER CONTRIBUTION
         """Persist embedding matrix to ``embedding_baseline.npy``."""
         if embeddings.ndim != 2:
             raise ValueError(
@@ -210,12 +220,12 @@ class FileBaselineStore(BaselineStore):
             embeddings.dtype,
         )
 
-    def load_psi_baseline(self) -> np.ndarray | None:  # PAPER CONTRIBUTION
+    def load_psi_baseline(self) -> EmbeddingMatrix | None:  # PAPER CONTRIBUTION
         """Load PSI baseline from disk, or ``None`` if missing/corrupt."""
         if not self._psi_path.is_file():
             return None
         try:
-            return np.load(self._psi_path)
+            return cast(EmbeddingMatrix, np.load(self._psi_path))
         except (OSError, ValueError) as exc:
             logger.error("Failed to load PSI baseline from %s: %s", self._psi_path, exc)
             return None
@@ -225,7 +235,9 @@ class FileBaselineStore(BaselineStore):
 
     # ── XAI ──────────────────────────────────────────────────────────────────
 
-    def save_xai_baseline(self, vectors: list[np.ndarray]) -> None:  # XAI CONTRIBUTION
+    def save_xai_baseline(
+        self, vectors: list[EmbeddingMatrix]
+    ) -> None:  # XAI CONTRIBUTION
         """Persist explanation vectors to ``xai_baseline.npz``."""
         payload = {f"vec_{i:04d}": v for i, v in enumerate(vectors)}
         np.savez(self._xai_path, **payload)
@@ -236,14 +248,14 @@ class FileBaselineStore(BaselineStore):
             vectors[0].shape if vectors else "n/a",
         )
 
-    def load_xai_baseline(self) -> list[np.ndarray] | None:  # XAI CONTRIBUTION
+    def load_xai_baseline(self) -> list[EmbeddingMatrix] | None:  # XAI CONTRIBUTION
         """Load XAI baseline vectors from disk, or ``None`` if missing/corrupt."""
         if not self._xai_path.is_file():
             return None
         try:
             with np.load(self._xai_path) as data:
                 keys = sorted(data.files, key=lambda k: int(k.split("_")[1]))
-                return [np.array(data[k]) for k in keys]
+                return [cast(EmbeddingMatrix, np.array(data[k])) for k in keys]
         except (OSError, ValueError, KeyError, IndexError) as exc:
             logger.error("Failed to load XAI baseline from %s: %s", self._xai_path, exc)
             return None

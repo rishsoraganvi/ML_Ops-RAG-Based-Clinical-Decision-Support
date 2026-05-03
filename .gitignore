@@ -22,6 +22,9 @@ pip-wheel-metadata/
 venv/
 env/
 ENV/
+myenv/
+ragas/
+.env/
 
 # ── Testing ──────────────────────────────────────────────────────────────────
 .pytest_cache/
@@ -48,6 +51,7 @@ dmypy.json
 .DS_Store
 Thumbs.db
 desktop.ini
+.claude/
 
 # ── Environment / Secrets ────────────────────────────────────────────────────
 .env
@@ -98,24 +102,21 @@ debug_logs/
 *.pid
 .cache/
 .tmp/
+*.bak
+*.log
 
-# ── Claude Code ──────────────────────────────────────────────────────────────
-.claude/
-
-# ── Project-specific ignores (pre-existing) ──────────────────────────────────
-PROGRESS.md
-CLAUDE.md
-Solo_plan.md
+# ── Node.js ──────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # ── Jupyter ──────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 
-# ── OS generated ─────────────────────────────────────────────────────────────
-*.log
-*.tmp
-*.bak
+# ── GSD Workflow / Planning ──────────────────────────────────────────────────
+.planning/
+.gsd/
 
-# ── Stray JS tooling (not part of the Python project) ───────────────────────
-node_modules/
-package.json
-package-lock.json
+# ── Miscellaneous ────────────────────────────────────────────────────────────
+*.swn
