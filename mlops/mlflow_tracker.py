@@ -514,12 +514,18 @@ class RAGOpsTracker:
                 # log_ragas_metrics).  A missing metric here means the judge
                 # produced unparseable output for it — fail the gate rather
                 # than crash, so CI/operators see exactly which metric is bad.
-                failures[metric] = (
-                    f"metric '{metric}' missing from run {run_id} "
-                    f"(judge returned NaN); threshold={threshold:.4f}"
+
+                # failures[metric] = (
+                #     f"metric '{metric}' missing from run {run_id} "
+                #     f"(judge returned NaN); threshold={threshold:.4f}"
+                # )
+                # logger.warning("Quality gate FAIL — %s: %s", metric, failures[metric])
+                # continue
+
+                raise RuntimeError(
+                    f"metric '{metric}' not found in run {run_id}; "
+                    f"call log_ragas_metrics() before log_quality_gate_results()"
                 )
-                logger.warning("Quality gate FAIL — %s: %s", metric, failures[metric])
-                continue
             if actual < threshold:
                 failures[metric] = f"actual={actual:.4f} < threshold={threshold:.4f}"
                 logger.warning("Quality gate FAIL — %s: %s", metric, failures[metric])
