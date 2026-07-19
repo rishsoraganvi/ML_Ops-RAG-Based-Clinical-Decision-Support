@@ -23,7 +23,7 @@ from typing import Any, cast
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import requests  # type: ignore[import-untyped]
+import requests
 import streamlit as st
 
 logger = logging.getLogger("ragops.dashboard")
